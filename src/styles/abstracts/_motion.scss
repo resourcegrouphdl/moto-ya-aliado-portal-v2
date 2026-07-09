@@ -1,0 +1,136 @@
+// Motion tokens — pesos Emil (restricción/velocidad, <300ms) + Jakub (pulido
+// de producción: enter = opacity+translateY+blur, exit más sutil que enter).
+// Nunca usar `ease`/`ease-in-out` planos — siempre curvas custom (cookbook §2).
+
+:root {
+  // Duraciones (prompt maestro: 150/200/250/300ms)
+  --duration-fast: 150ms; // hover, focus, toggles pequeños
+  --duration-base: 200ms; // enter de componentes chicos (badge, tooltip)
+  --duration-moderate: 250ms; // cards, dropdowns, tabs
+  --duration-slow: 300ms; // modales, sidebar, panels grandes — techo de Emil
+
+  // Curvas custom (nunca bare ease)
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1); // llegada rápida, freno suave — entradas
+  --ease-in-soft: cubic-bezier(0.7, 0, 0.84, 0); // salida — elementos que se van
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1); // curva iOS (Vaul/Sonner) — sheets, drawers, sidebar
+}
+
+// Aplica un bloque de reglas SOLO cuando el usuario no pidió reduced-motion.
+// Uso: @include motion-safe { transition: transform var(--duration-base) ...; }
+@mixin motion-safe {
+  @media (prefers-reduced-motion: no-preference) {
+    @content;
+  }
+}
+
+// Neutraliza duraciones/iteraciones en todo el árbol — se incluye una vez
+// en _global.scss, no hay que repetirlo por componente.
+@mixin reduced-motion-reset {
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Keyframes reutilizables — enter siempre opacity+translateY+blur (Jakub §1)
+// ---------------------------------------------------------------------------
+@keyframes motoya-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes motoya-enter-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+// Exit deliberadamente más sutil que el enter-up (cookbook §1: "exits
+// subtler than enters" — menor desplazamiento, misma familia de blur).
+@keyframes motoya-exit-up {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+    filter: blur(3px);
+  }
+}
+
+@keyframes motoya-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96); // nunca desde scale(0) — cookbook §10
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes motoya-shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes motoya-ripple {
+  from {
+    transform: scale(0);
+    opacity: 0.28;
+  }
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+// Mixins de aplicación — encapsulan duración+curva+reduced-motion juntos,
+// para que ningún componente pueda "olvidar" el reduced-motion path.
+@mixin enter-up($duration: var(--duration-moderate)) {
+  animation: motoya-enter-up $duration var(--ease-out-soft) both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: motoya-fade-in 0.01ms linear both;
+  }
+}
+
+@mixin exit-up($duration: var(--duration-base)) {
+  animation: motoya-exit-up $duration var(--ease-in-soft) both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@mixin scale-in($duration: var(--duration-base)) {
+  animation: motoya-scale-in $duration var(--ease-out-soft) both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: motoya-fade-in 0.01ms linear both;
+  }
+}

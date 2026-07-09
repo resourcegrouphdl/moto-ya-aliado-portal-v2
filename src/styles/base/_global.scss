@@ -1,0 +1,80 @@
+@use '../abstracts/mixins' as m;
+@use '../abstracts/motion' as motion;
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+// Selección de texto en tono de marca, no el azul default del navegador.
+::selection {
+  background: var(--color-primary-subtle);
+  color: var(--color-primary-hover);
+}
+
+// Scroll global fino y consistente con el resto del sistema.
+body {
+  @include m.custom-scrollbar;
+}
+
+// Foco visible por defecto en cualquier elemento interactivo nativo que no
+// tenga ya su propio tratamiento de :focus-visible en el componente.
+a,
+button,
+input,
+select,
+textarea,
+[tabindex] {
+  @include m.focus-ring;
+}
+
+// Material Symbols — variable font, controlada por variables por instancia
+// (mt-icon setea --icon-fill/--icon-weight/--icon-grad/--icon-opsz inline).
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  display: inline-block;
+  font-variation-settings:
+    'FILL' var(--icon-fill, 0),
+    'wght' var(--icon-weight, 400),
+    'GRAD' var(--icon-grad, 0),
+    'opsz' var(--icon-opsz, 24);
+}
+
+.mt-visually-hidden {
+  @include m.visually-hidden;
+}
+
+// Ripple (RippleDirective) — el nodo se crea fuera del árbol de Angular, así
+// que su estilo tiene que vivir en CSS global, no en un componente encapsulado.
+.mt-ripple {
+  position: absolute;
+  border-radius: var(--radius-full);
+  background: currentColor;
+  opacity: 0.28;
+  pointer-events: none;
+  animation: motoya-ripple 500ms var(--ease-out-soft);
+}
+
+// ModalService / CDK Dialog — el backdrop y el pane viven fuera del árbol de
+// cualquier componente (los crea el overlay container), así que su estilo
+// tiene que ser global. El "card" visual en sí lo pone mt-modal-shell.
+.mt-modal-backdrop {
+  background: color-mix(in srgb, var(--color-sidebar) 55%, transparent);
+  @include motion.motion-safe {
+    animation: motoya-fade-in var(--duration-base) var(--ease-out-soft);
+  }
+}
+
+.mt-overlay-backdrop-transparent {
+  background: transparent;
+}
+

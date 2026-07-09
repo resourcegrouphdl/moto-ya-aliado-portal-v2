@@ -1,1 +1,13 @@
-/* You can add global styles to this file, and also import other style files */
+// Punto de entrada global de estilos — orden importa: tokens/motion primero
+// (definen custom properties y mixins), luego base (reset/tipografía/global).
+// Mismo design system que admin-v2 (motoya-web-publica-spec.md §0.3/§5:
+// Aliado Comercial comparte design system con admin-v2, no con Web
+// Pública/Portal Cliente).
+@use 'styles/abstracts/tokens';
+@use 'styles/abstracts/motion';
+@use 'styles/base/reset';
+@use 'styles/base/typography';
+@use 'styles/base/global';
+
+// prefers-reduced-motion — una sola vez, para toda la app (mixin en _motion.scss).
+@include motion.reduced-motion-reset;

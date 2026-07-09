@@ -1,0 +1,10 @@
+<div class="mt-navbar__spacer"></div>
+
+<div class="mt-navbar__user">
+  <div class="mt-navbar__identity">
+    <span class="mt-navbar__name">{{ authService.displayName() }}</span>
+    <span class="mt-navbar__role">{{ rolLabel() }}</span>
+  </div>
+  <div class="mt-navbar__avatar">{{ authService.initials() }}</div>
+  <button type="button" class="mt-navbar__logout" (click)="logout()">Salir</button>
+</div>

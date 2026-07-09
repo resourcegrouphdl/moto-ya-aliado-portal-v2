@@ -1,0 +1,127 @@
+// Design tokens — Motoya Admin v2
+// Fuente de verdad visual del dashboard. No hardcodear colores/espaciados
+// fuera de aquí: todo componente consume estas variables.
+@use 'sass:color';
+@use 'sass:map';
+
+// ---------------------------------------------------------------------------
+// Paleta base (del prompt maestro) — se derivan tintes/sombras por color-mix
+// para no hardcodear un hover distinto en cada componente.
+// ---------------------------------------------------------------------------
+$color-primary: #2563eb;
+$color-secondary: #0ea5e9;
+$color-success: #10b981;
+$color-warning: #f59e0b;
+$color-error: #ef4444;
+
+$color-bg: #f8fafc;
+$color-surface: #ffffff;
+$color-sidebar: #0f172a;
+$color-text: #0f172a;
+$color-text-muted: #64748b;
+$color-border: #e2e8f0;
+
+:root {
+  // Marca
+  --color-primary: #{$color-primary};
+  --color-primary-hover: #{color.adjust($color-primary, $lightness: -8%)};
+  --color-primary-subtle: #{color.mix($color-primary, white, 10%)};
+  --color-secondary: #{$color-secondary};
+  --color-secondary-hover: #{color.adjust($color-secondary, $lightness: -8%)};
+
+  // Semántico
+  --color-success: #{$color-success};
+  --color-success-bg: #{color.mix($color-success, white, 12%)};
+  --color-warning: #{$color-warning};
+  --color-warning-bg: #{color.mix($color-warning, white, 12%)};
+  --color-error: #{$color-error};
+  --color-error-bg: #{color.mix($color-error, white, 12%)};
+
+  // Superficies
+  --color-bg: #{$color-bg};
+  --color-surface: #{$color-surface};
+  --color-surface-hover: #{color.adjust($color-surface, $lightness: -1.5%)};
+  --color-sidebar: #{$color-sidebar};
+  --color-sidebar-hover: #{color.adjust($color-sidebar, $lightness: 6%)};
+  --color-sidebar-active: #{color.adjust($color-sidebar, $lightness: 10%)};
+
+  // Texto
+  --color-text: #{$color-text};
+  --color-text-muted: #{$color-text-muted};
+  --color-text-inverse: #ffffff;
+  --color-text-on-sidebar: #cbd5e1;
+  --color-text-on-sidebar-active: #ffffff;
+
+  // Bordes
+  --color-border: #{$color-border};
+  --color-border-strong: #{color.adjust($color-border, $lightness: -12%)};
+
+  // Sombras (multicapa, Jakub §3 — se adaptan a cualquier fondo, no compiten con bordes gruesos)
+  --shadow-xs:
+    0px 0px 0px 1px rgba(15, 23, 42, 0.04),
+    0px 1px 2px 0px rgba(15, 23, 42, 0.04);
+  --shadow-sm:
+    0px 0px 0px 1px rgba(15, 23, 42, 0.06),
+    0px 1px 2px -1px rgba(15, 23, 42, 0.06),
+    0px 2px 4px 0px rgba(15, 23, 42, 0.04);
+  --shadow-md:
+    0px 0px 0px 1px rgba(15, 23, 42, 0.06),
+    0px 4px 8px -2px rgba(15, 23, 42, 0.08),
+    0px 8px 16px -4px rgba(15, 23, 42, 0.06);
+  --shadow-lg:
+    0px 0px 0px 1px rgba(15, 23, 42, 0.06),
+    0px 12px 24px -6px rgba(15, 23, 42, 0.12),
+    0px 20px 40px -8px rgba(15, 23, 42, 0.1);
+  --shadow-focus: 0 0 0 3px #{color.mix($color-primary, white, 25%)};
+
+  // Radios
+  --radius-sm: 8px;
+  --radius-md: 12px; // botones, inputs
+  --radius-lg: 18px; // cards
+  --radius-full: 999px;
+
+  // Espaciado — escala 4..64 (prompt maestro)
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  // Tipografía
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, monospace;
+
+  --text-xs: 0.75rem; // 12px
+  --text-sm: 0.8125rem; // 13px
+  --text-base: 0.9375rem; // 15px
+  --text-md: 1rem; // 16px
+  --text-lg: 1.125rem; // 18px
+  --text-xl: 1.375rem; // 22px
+  --text-2xl: 1.75rem; // 28px
+  --text-3xl: 2.25rem; // 36px
+
+  // Layout
+  --sidebar-width: 264px;
+  --sidebar-width-collapsed: 76px;
+  --navbar-height: 68px;
+
+  // z-index
+  --z-dropdown: 1000;
+  --z-sticky: 1100;
+  --z-overlay: 1200;
+  --z-modal: 1300;
+  --z-toast: 1400;
+  --z-tooltip: 1500;
+}
+
+// Breakpoints — SCSS-only (no se pueden usar custom properties en @media)
+$bp-sm: 480px;
+$bp-md: 768px;
+$bp-lg: 1024px;
+$bp-xl: 1280px;
+$bp-2xl: 1536px;

@@ -1,0 +1,24 @@
+<div class="mt-sidebar__brand">
+  <span class="mt-sidebar__brand-name">Motoya</span>
+  <span class="mt-sidebar__brand-sub">Aliado Comercial</span>
+</div>
+
+<nav class="mt-sidebar__nav">
+  @for (section of sections(); track section.title) {
+    <div class="mt-sidebar__section">
+      @if (section.title) {
+        <span class="mt-sidebar__section-title">{{ section.title }}</span>
+      }
+      @for (item of section.items; track item.route) {
+        <a
+          class="mt-sidebar__item"
+          [routerLink]="item.route"
+          routerLinkActive="mt-sidebar__item--active"
+        >
+          <mt-icon [name]="item.icon" [size]="20" />
+          <span>{{ item.label }}</span>
+        </a>
+      }
+    </div>
+  }
+</nav>

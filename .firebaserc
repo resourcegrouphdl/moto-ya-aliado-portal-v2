@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "motoya-form"
+  },
+  "targets": {
+    "motoya-form": {
+      "hosting": {
+        "aliado-comercial": [
+          "aliado-comercial-moto-ya"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

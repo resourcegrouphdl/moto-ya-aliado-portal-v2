@@ -1,0 +1,13 @@
+{
+  "hosting": {
+    "target": "aliado-comercial",
+    "public": "dist/seccion-aliado-comercial/browser",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

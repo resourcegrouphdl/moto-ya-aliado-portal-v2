@@ -1,0 +1,22 @@
+:host {
+  display: flex;
+  align-items: flex-start;
+  min-height: 100dvh;
+  background: var(--color-bg);
+}
+
+.mt-shell__main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.mt-shell__content {
+  flex: 1;
+  padding: var(--space-6);
+
+  @media (max-width: 767px) {
+    padding: var(--space-4);
+  }
+}
