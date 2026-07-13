@@ -59,6 +59,14 @@
         <mt-input class="span-12" label="Dirección" formControlName="direccion" icon="home_pin" />
       </form>
 
+      <mt-gps-picker
+        class="wizard-gps"
+        label="Ubicación GPS del domicilio del titular"
+        [esRequerido]="true"
+        (addressParsed)="onDireccionTitularParsed($event)"
+        (coordenadasCambiadas)="onCoordenadasTitular($event)"
+      />
+
       <div card-footer class="step-actions">
         <span class="step-actions__hint">Paso 1 de 5</span>
         <mt-button (click)="continuarTitular()" [loading]="guardando()">Continuar</mt-button>
@@ -91,37 +99,37 @@
     <mt-card>
       <div card-header class="step-header">
         <h2>Aval</h2>
-        <p>Opcional, pero recomendado para créditos con perfil ajustado.</p>
+        <p>Requerido: toda solicitud necesita un aval.</p>
       </div>
 
-      @if (!quiereAvalista()) {
-        <div class="skip-panel">
-          <mt-icon name="shield_person" [size]="28" />
-          <p>Esta solicitud continuará sin aval.</p>
-          <button type="button" class="link-button" (click)="activarAvalista()">Agregar un aval de todas formas</button>
-        </div>
-      } @else {
-        <form [formGroup]="formAvalista" class="form-grid" (ngSubmit)="continuarAvalista()">
-          <mt-select class="span-4" label="Tipo de documento" formControlName="tipoDocumento" [options]="tiposDocumento" />
-          <mt-input class="span-8" label="Número de documento" formControlName="numeroDocumento" icon="badge" />
+      <form [formGroup]="formAvalista" class="form-grid" (ngSubmit)="continuarAvalista()">
+        <mt-select class="span-4" label="Tipo de documento" formControlName="tipoDocumento" [options]="tiposDocumento" />
+        <mt-input class="span-8" label="Número de documento" formControlName="numeroDocumento" icon="badge" />
 
-          <mt-input class="span-4" label="Nombres" formControlName="nombres" />
-          <mt-input class="span-4" label="Apellido paterno" formControlName="apellidoPaterno" />
-          <mt-input class="span-4" label="Apellido materno" formControlName="apellidoMaterno" />
+        <mt-input class="span-4" label="Nombres" formControlName="nombres" />
+        <mt-input class="span-4" label="Apellido paterno" formControlName="apellidoPaterno" />
+        <mt-input class="span-4" label="Apellido materno" formControlName="apellidoMaterno" />
 
-          <mt-input class="span-6" label="Teléfono" formControlName="telefono" type="tel" icon="call" />
-          <mt-select class="span-6" label="Relación con el titular" formControlName="relacion" [options]="relaciones" />
-        </form>
-      }
+        <mt-input class="span-6" label="Teléfono" formControlName="telefono" type="tel" icon="call" />
+        <mt-select class="span-6" label="Relación con el titular" formControlName="relacion" [options]="relaciones" />
+
+        <mt-input class="span-4" label="Departamento" formControlName="departamento" />
+        <mt-input class="span-4" label="Provincia" formControlName="provincia" />
+        <mt-input class="span-4" label="Distrito" formControlName="distrito" />
+        <mt-input class="span-12" label="Dirección" formControlName="direccion" icon="home_pin" />
+      </form>
+
+      <mt-gps-picker
+        class="wizard-gps"
+        label="Ubicación GPS del domicilio del aval"
+        [esRequerido]="true"
+        (addressParsed)="onDireccionAvalistaParsed($event)"
+        (coordenadasCambiadas)="onCoordenadasAvalista($event)"
+      />
 
       <div card-footer class="step-actions">
         <span class="step-actions__hint">Paso 2 de 5</span>
-        <div class="step-actions__group">
-          @if (quiereAvalista()) {
-            <mt-button variant="ghost" (click)="omitirAvalista()">Omitir este paso</mt-button>
-            <mt-button (click)="continuarAvalista()" [loading]="guardando()">Continuar</mt-button>
-          }
-        </div>
+        <mt-button (click)="continuarAvalista()" [loading]="guardando()">Continuar</mt-button>
       </div>
     </mt-card>
   }

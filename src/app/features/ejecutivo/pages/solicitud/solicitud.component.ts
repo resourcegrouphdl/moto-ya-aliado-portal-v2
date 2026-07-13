@@ -1,12 +1,13 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { catchError, of, switchMap, throwError } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, filter, of, switchMap, throwError } from 'rxjs';
 
 import { AlertComponent } from '../../../../shared/ui/alert/alert.component';
 import { BadgeComponent } from '../../../../shared/ui/badge/badge.component';
 import { ButtonComponent } from '../../../../shared/ui/button/button.component';
 import { CardComponent } from '../../../../shared/ui/card/card.component';
+import { Coordenadas, DireccionParseada, GpsPickerComponent } from '../../../../shared/ui/gps-picker/gps-picker.component';
 import { IconComponent } from '../../../../shared/ui/icon/icon.component';
 import { InputComponent } from '../../../../shared/ui/input/input.component';
 import { SelectComponent, SelectOption } from '../../../../shared/ui/select/select.component';
@@ -60,6 +61,10 @@ const RELACIONES: SelectOption<string>[] = [
  * final no dispara evaluación real — BC-02 no tiene backend — solo confirma
  * que la solicitud quedó registrada.
  *
+ * Aval: por regulación pasó a ser siempre obligatorio (ya no se puede omitir
+ * el paso) — titular y aval capturan la misma dirección+GPS de vivienda vía
+ * mt-gps-picker.
+ *
  * Antifraude/continuidad: al resolver el titular se consulta su historial
  * (incluye solicitudes migradas de Firestore); al agregar el aval se
  * consulta si hay relación circular titular↔aval (A tuvo a B de aval, B
@@ -76,6 +81,7 @@ const RELACIONES: SelectOption<string>[] = [
     BadgeComponent,
     ButtonComponent,
     CardComponent,
+    GpsPickerComponent,
     IconComponent,
     InputComponent,
     SelectComponent
@@ -97,7 +103,6 @@ export class SolicitudComponent {
 
   protected readonly titular = signal<ClienteResponse | null>(null);
   protected readonly solicitud = signal<SolicitudCreditoResponse | null>(null);
-  protected readonly quiereAvalista = signal(true);
   protected readonly avalista = signal<{ cliente: ClienteResponse; relacion: string } | null>(null);
   protected readonly vehiculo = signal<VehiculoSolicitudResponse | null>(null);
   protected readonly referencias = signal<ReferenciaResponse[]>([]);
@@ -124,7 +129,9 @@ export class SolicitudComponent {
     departamento: [''],
     provincia: [''],
     distrito: [''],
-    direccion: ['']
+    direccion: [''],
+    latitud: [null as number | null],
+    longitud: [null as number | null]
   });
 
   protected readonly formAvalista = this.fb.nonNullable.group({
@@ -134,6 +141,12 @@ export class SolicitudComponent {
     apellidoPaterno: ['', Validators.required],
     apellidoMaterno: ['', Validators.required],
     telefono: [''],
+    departamento: [''],
+    provincia: [''],
+    distrito: [''],
+    direccion: [''],
+    latitud: [null as number | null],
+    longitud: [null as number | null],
     relacion: ['Padre/Madre', Validators.required]
   });
 
@@ -156,6 +169,77 @@ export class SolicitudComponent {
   protected readonly puedeAgregarReferencia = computed(() => this.referencias().length < 3);
   protected readonly puedeContinuarReferencias = computed(() => this.referencias().length >= 1);
 
+  constructor() {
+    this.configurarLookupTitular();
+    this.configurarLookupAvalista();
+  }
+
+  /**
+   * Autocompleta nombres/apellidos vía json.pe (DNI o CEE, según
+   * tipoDocumento) al escribir el número de documento — evita errores de
+   * tipeo. Nunca bloquea: si json.pe no responde o no encuentra el
+   * documento, el ejecutivo sigue pudiendo tipear todo a mano.
+   */
+  private configurarLookupTitular(): void {
+    this.formTitular.controls.numeroDocumento.valueChanges
+      .pipe(
+        debounceTime(500),
+        distinctUntilChanged(),
+        filter((numero) => numero.trim().length >= 8),
+        switchMap((numero) => {
+          const tipo = this.formTitular.controls.tipoDocumento.value;
+          const lookup$ = tipo === 'DNI' ? this.api.consultarDni(numero) : this.api.consultarCee(numero);
+          return lookup$.pipe(catchError(() => of(null)));
+        })
+      )
+      .subscribe((resultado) => {
+        if (!resultado) return;
+        this.formTitular.patchValue({
+          nombres: resultado.nombres,
+          apellidoPaterno: resultado.apellidoPaterno,
+          apellidoMaterno: resultado.apellidoMaterno
+        });
+      });
+  }
+
+  private configurarLookupAvalista(): void {
+    this.formAvalista.controls.numeroDocumento.valueChanges
+      .pipe(
+        debounceTime(500),
+        distinctUntilChanged(),
+        filter((numero) => numero.trim().length >= 8),
+        switchMap((numero) => {
+          const tipo = this.formAvalista.controls.tipoDocumento.value;
+          const lookup$ = tipo === 'DNI' ? this.api.consultarDni(numero) : this.api.consultarCee(numero);
+          return lookup$.pipe(catchError(() => of(null)));
+        })
+      )
+      .subscribe((resultado) => {
+        if (!resultado) return;
+        this.formAvalista.patchValue({
+          nombres: resultado.nombres,
+          apellidoPaterno: resultado.apellidoPaterno,
+          apellidoMaterno: resultado.apellidoMaterno
+        });
+      });
+  }
+
+  protected onDireccionTitularParsed(data: DireccionParseada): void {
+    this.formTitular.patchValue(data);
+  }
+
+  protected onCoordenadasTitular(coords: Coordenadas): void {
+    this.formTitular.patchValue({ latitud: coords.latitud, longitud: coords.longitud });
+  }
+
+  protected onDireccionAvalistaParsed(data: DireccionParseada): void {
+    this.formAvalista.patchValue(data);
+  }
+
+  protected onCoordenadasAvalista(coords: Coordenadas): void {
+    this.formAvalista.patchValue({ latitud: coords.latitud, longitud: coords.longitud });
+  }
+
   continuarTitular(): void {
     if (this.formTitular.invalid) {
       this.formTitular.markAllAsTouched();
@@ -170,6 +254,19 @@ export class SolicitudComponent {
       .pipe(
         catchError((err: HttpErrorResponse) =>
           err.status === 404 ? this.api.crearCliente(datos) : throwError(() => err)
+        ),
+        // Se llama siempre (cliente creado o encontrado) — crearCliente no es
+        // find-or-create, así que si el documento ya existía la dirección/GPS
+        // tipeada en esta corrida del wizard se perdía sin este paso.
+        switchMap((cliente) =>
+          this.api.actualizarDireccionCliente(cliente.id, {
+            departamento: datos.departamento,
+            provincia: datos.provincia,
+            distrito: datos.distrito,
+            direccion: datos.direccion,
+            latitud: datos.latitud,
+            longitud: datos.longitud
+          })
         ),
         switchMap((cliente) =>
           this.api
@@ -197,15 +294,6 @@ export class SolicitudComponent {
     });
   }
 
-  omitirAvalista(): void {
-    this.quiereAvalista.set(false);
-    this.paso.set('vehiculo');
-  }
-
-  activarAvalista(): void {
-    this.quiereAvalista.set(true);
-  }
-
   continuarAvalista(): void {
     if (this.formAvalista.invalid) {
       this.formAvalista.markAllAsTouched();
@@ -222,6 +310,16 @@ export class SolicitudComponent {
       .buscarClientePorDocumento(datos.tipoDocumento, datos.numeroDocumento)
       .pipe(catchError((err: HttpErrorResponse) => (err.status === 404 ? this.api.crearCliente(datos) : throwError(() => err))))
       .pipe(
+        switchMap((cliente) =>
+          this.api.actualizarDireccionCliente(cliente.id, {
+            departamento: datos.departamento,
+            provincia: datos.provincia,
+            distrito: datos.distrito,
+            direccion: datos.direccion,
+            latitud: datos.latitud,
+            longitud: datos.longitud
+          })
+        ),
         switchMap((cliente) =>
           this.api
             .agregarAvalista(solicitud.id, { clienteId: cliente.id, relacion: datos.relacion })
@@ -306,15 +404,14 @@ export class SolicitudComponent {
   nuevaSolicitud(): void {
     this.titular.set(null);
     this.solicitud.set(null);
-    this.quiereAvalista.set(true);
     this.avalista.set(null);
     this.vehiculo.set(null);
     this.referencias.set([]);
     this.error.set(null);
     this.historialTitular.set([]);
     this.relacionCircularDetectada.set(false);
-    this.formTitular.reset({ tipoDocumento: 'DNI' });
-    this.formAvalista.reset({ tipoDocumento: 'DNI', relacion: 'Padre/Madre' });
+    this.formTitular.reset({ tipoDocumento: 'DNI', latitud: null, longitud: null });
+    this.formAvalista.reset({ tipoDocumento: 'DNI', relacion: 'Padre/Madre', latitud: null, longitud: null });
     this.formVehiculo.reset({ anio: new Date().getFullYear() });
     this.formReferencia.reset({ relacion: 'Amigo(a)' });
     this.mostrarFormReferencia.set(true);

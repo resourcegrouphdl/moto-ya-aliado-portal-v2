@@ -3,8 +3,11 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
+  ActualizarDireccionRequest,
   AvalistaResponse,
   ClienteResponse,
+  ConsultaCeeResponse,
+  ConsultaDniResponse,
   CrearClienteRequest,
   CrearSolicitudRequest,
   DatosAvalista,
@@ -34,6 +37,16 @@ export class OriginacionApiService {
 
   crearCliente(datos: CrearClienteRequest): Observable<ClienteResponse> {
     return this.http.post<ClienteResponse>(`${this.base}/clientes`, datos);
+  }
+
+  /**
+   * Se llama siempre después de resolver el id de un cliente (titular o
+   * aval), tanto si se acaba de crear como si ya existía — crearCliente no
+   * es find-or-create, así que la dirección/GPS tipeada en la corrida actual
+   * del wizard se perdía si el cliente ya estaba registrado.
+   */
+  actualizarDireccionCliente(clienteId: string, datos: ActualizarDireccionRequest): Observable<ClienteResponse> {
+    return this.http.patch<ClienteResponse>(`${this.base}/clientes/${clienteId}/direccion`, datos);
   }
 
   crearSolicitud(datos: CrearSolicitudRequest): Observable<SolicitudCreditoResponse> {
@@ -72,5 +85,14 @@ export class OriginacionApiService {
     return this.http
       .get<{ existeRelacionCircular: boolean }>(`${this.base}/clientes/${clienteTitularId}/relacion-circular/${clienteAvalistaId}`)
       .pipe(map((r) => r.existeRelacionCircular));
+  }
+
+  /** Autocompletado de nombres/apellidos (json.pe, proxeado por el backend — nunca se llama a json.pe directo desde el navegador). */
+  consultarDni(numero: string): Observable<ConsultaDniResponse> {
+    return this.http.get<ConsultaDniResponse>(`${this.base}/lookup/dni/${numero}`);
+  }
+
+  consultarCee(numero: string): Observable<ConsultaCeeResponse> {
+    return this.http.get<ConsultaCeeResponse>(`${this.base}/lookup/cee/${numero}`);
   }
 }

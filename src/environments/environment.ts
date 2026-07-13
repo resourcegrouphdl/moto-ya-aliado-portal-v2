@@ -6,6 +6,11 @@
 export const environment = {
   production: true,
   gatewayBaseUrl: 'https://moto-ya-gateway-26647667439.us-central1.run.app',
+  // API key de cliente para Google Maps JS (Places + Geocoding) — GPS del
+  // domicilio en el wizard de originación. Placeholder vacío a propósito:
+  // completar en Google Cloud Console y restringir por referrer HTTP +
+  // Maps JavaScript API/Places API/Geocoding API antes de usarla en real.
+  googleMapsApiKey: '',
   firebase: {
     apiKey: 'AIzaSyDSm_NM4QShVmIhd_5SpJT2WG9tz4h6LLQ',
     authDomain: 'motoya-form.firebaseapp.com',

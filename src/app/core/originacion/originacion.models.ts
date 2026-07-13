@@ -24,6 +24,8 @@ export interface CrearClienteRequest {
   provincia?: string;
   distrito?: string;
   direccion?: string;
+  latitud?: number | null;
+  longitud?: number | null;
 }
 
 export interface ClienteResponse {
@@ -39,9 +41,31 @@ export interface ClienteResponse {
   provincia: string | null;
   distrito: string | null;
   direccion: string | null;
+  latitud: number | null;
+  longitud: number | null;
   creadoPor: string | null;
   creadoEn: string | null;
 }
+
+/** PATCH /clientes/{id}/direccion — se llama siempre tras resolver el id del cliente (creado o encontrado), ver OriginacionApiService. */
+export interface ActualizarDireccionRequest {
+  departamento?: string | null;
+  provincia?: string | null;
+  distrito?: string | null;
+  direccion?: string | null;
+  latitud?: number | null;
+  longitud?: number | null;
+}
+
+/** Respuesta de /partner/originacion/lookup/dni/{numero} y .../lookup/cee/{numero} — mismos 4 campos en ambos. */
+export interface ConsultaDniResponse {
+  numero: string;
+  nombres: string;
+  apellidoPaterno: string;
+  apellidoMaterno: string;
+}
+
+export type ConsultaCeeResponse = ConsultaDniResponse;
 
 export interface CrearSolicitudRequest {
   canal: Canal;

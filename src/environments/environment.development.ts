@@ -2,6 +2,7 @@
 export const environment = {
   production: false,
   gatewayBaseUrl: 'http://localhost:8000',
+  googleMapsApiKey: '',
   firebase: {
     apiKey: 'AIzaSyDSm_NM4QShVmIhd_5SpJT2WG9tz4h6LLQ',
     authDomain: 'motoya-form.firebaseapp.com',
