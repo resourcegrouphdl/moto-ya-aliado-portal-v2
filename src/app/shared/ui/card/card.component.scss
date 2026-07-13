@@ -1,0 +1,29 @@
+@use '../../../../styles/abstracts/mixins' as m;
+
+:host {
+  display: block;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg); // 18px, prompt maestro
+  box-shadow: var(--shadow-sm); // sombra suave, sin borde grueso
+
+  transition:
+    transform var(--duration-fast) var(--ease-out-soft),
+    box-shadow var(--duration-fast) var(--ease-out-soft);
+}
+
+:host(.mt-card--padded) {
+  padding: var(--space-6);
+}
+
+:host(.mt-card--hoverable) {
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+.mt-card__body {
+  display: contents;
+}

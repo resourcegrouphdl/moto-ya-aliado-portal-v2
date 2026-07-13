@@ -1,0 +1,43 @@
+@use '../../../../styles/abstracts/field' as field;
+
+:host {
+  display: block;
+}
+
+.mt-field {
+  @include field.field-chrome;
+}
+
+.mt-field__icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  margin-top: var(--space-2); // compensa el espacio que deja el label flotante arriba
+}
+
+input {
+  flex: 1;
+  height: 100%;
+  padding-top: var(--space-3);
+  background: transparent;
+  border: none; // sin esto el navegador dibuja su propio recuadro por defecto, siempre visible, encima de la píldora de .mt-field__control
+  font-size: var(--text-base);
+  color: var(--color-text);
+
+  &::placeholder {
+    color: transparent; // el placeholder no se usa — el label flotante lo reemplaza
+  }
+
+  // El reset global (a,button,input,select,textarea) pone su propio
+  // box-shadow de foco directo sobre el <input>, sin el radio ni el borde
+  // del contenedor — se ve como un recuadro recto "inscrito" dentro de la
+  // píldora redondeada. El foco visible real ya lo da .mt-field__control
+  // (borde + sombra, activado por [class.mt-field--focused] en el host).
+  &:focus-visible {
+    box-shadow: none;
+  }
+}
+
+// Cuando hay ícono, el label arranca desplazado para no superponerse.
+.mt-field__icon ~ label {
+  left: var(--space-8);
+}

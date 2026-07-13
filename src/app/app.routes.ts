@@ -22,6 +22,13 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', component: HomeRedirectComponent },
       {
+        path: 'administrador/clientes',
+        canActivate: [rolGuard],
+        data: { allowedRoles: ['ADMINISTRADOR_ALIADO'] },
+        loadComponent: () =>
+          import('./features/administrador/pages/clientes/clientes.component').then((m) => m.ClientesComponent)
+      },
+      {
         path: 'administrador/contratos',
         canActivate: [rolGuard],
         data: { allowedRoles: ['ADMINISTRADOR_ALIADO'] },

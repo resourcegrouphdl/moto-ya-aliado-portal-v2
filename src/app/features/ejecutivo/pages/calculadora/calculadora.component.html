@@ -1,0 +1,89 @@
+<mt-page-header title="Calculadora" description="Cotiza el cronograma de cuotas de un cliente." />
+
+@if (error()) {
+  <mt-alert variant="error" title="Algo no salió bien">{{ error() }}</mt-alert>
+}
+
+<mt-card>
+  <div card-header class="calculadora-header">
+    <h2>Datos del crédito</h2>
+    <p>La inicial mínima y el rango de semanas ya están fijados por el producto vigente.</p>
+  </div>
+
+  <form [formGroup]="form" class="form-grid" (ngSubmit)="cotizar()">
+    <mt-input class="span-6" label="Precio de la moto (S/)" formControlName="precioVehiculo" type="number" icon="two_wheeler" />
+    <mt-input
+      class="span-6"
+      label="Inicial (opcional, S/)"
+      formControlName="inicialIngresada"
+      type="number"
+      icon="payments"
+      hint="Vacío o 0 usa la inicial mínima del producto (20%)"
+    />
+    <mt-select class="span-6" label="Plazo" formControlName="numeroPeriodos" [options]="semanasOptions" />
+    <mt-select class="span-6" label="SOAT" formControlName="incluirSoat" [options]="soatOptions" />
+  </form>
+
+  <div card-footer class="calculadora-footer">
+    <mt-button (click)="cotizar()" [loading]="cotizando()">Cotizar</mt-button>
+  </div>
+</mt-card>
+
+@if (resultado(); as r) {
+  <mt-card class="resultado">
+    <div card-header class="calculadora-header">
+      <h2>Cotización</h2>
+      <p>Producto {{ r.codigoProducto }}</p>
+    </div>
+
+    <dl class="resumen-grid">
+      <div class="resumen-item"><dt>Inicial aplicada</dt><dd>S/ {{ r.inicialAplicada | number: '1.2-2' }}</dd></div>
+      <div class="resumen-item"><dt>Capital base</dt><dd>S/ {{ r.capitalBase | number: '1.2-2' }}</dd></div>
+      <div class="resumen-item"><dt>SOAT aplicado</dt><dd>S/ {{ r.montoSoatAplicado | number: '1.2-2' }}</dd></div>
+      <div class="resumen-item"><dt>Comisión ({{ r.comisionFinanciada ? 'financiada' : 'al desembolso' }})</dt><dd>S/ {{ r.comisionMonto | number: '1.2-2' }}</dd></div>
+      <div class="resumen-item"><dt>Gastos administrativos</dt><dd>S/ {{ r.gastosAdministrativos | number: '1.2-2' }}</dd></div>
+      <div class="resumen-item resumen-item--destacado"><dt>Monto a financiar</dt><dd>S/ {{ r.montoFinanciar | number: '1.2-2' }}</dd></div>
+      <div class="resumen-item"><dt>Efectivo neto (a la tienda)</dt><dd>S/ {{ r.efectivoNeto | number: '1.2-2' }}</dd></div>
+      <div class="resumen-item"><dt>TEA</dt><dd>{{ r.tea * 100 | number: '1.2-2' }}%</dd></div>
+      <div class="resumen-item"><dt>TCEA</dt><dd>{{ r.tcea * 100 | number: '1.2-2' }}%</dd></div>
+      <div class="resumen-item resumen-item--destacado"><dt>Cuota semanal</dt><dd>S/ {{ r.cuotaBase | number: '1.2-2' }}</dd></div>
+      <div class="resumen-item"><dt>Total intereses</dt><dd>S/ {{ r.totalIntereses | number: '1.2-2' }}</dd></div>
+      <div class="resumen-item"><dt>Total a pagar</dt><dd>S/ {{ r.totalAPagar | number: '1.2-2' }}</dd></div>
+    </dl>
+
+    @if (!r.tceaConvergioCorrectamente) {
+      <mt-alert variant="warning" title="TCEA aproximada">
+        El cálculo exacto de la TCEA no convergió — el valor mostrado es una aproximación.
+      </mt-alert>
+    }
+
+    <div class="cronograma-scroll">
+      <table class="cronograma-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Vencimiento</th>
+            <th>Saldo inicial</th>
+            <th>Interés</th>
+            <th>Amortización</th>
+            <th>Cuota</th>
+            <th>Saldo final</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (cuota of r.cuotas; track cuota.numero) {
+            <tr>
+              <td>{{ cuota.numero }}</td>
+              <td>{{ cuota.fechaVencimiento }}</td>
+              <td>{{ cuota.saldoInicial | number: '1.2-2' }}</td>
+              <td>{{ cuota.interes | number: '1.2-2' }}</td>
+              <td>{{ cuota.amortizacionCapital | number: '1.2-2' }}</td>
+              <td>{{ cuota.cuotaTotal | number: '1.2-2' }}</td>
+              <td>{{ cuota.saldoFinal | number: '1.2-2' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </mt-card>
+}

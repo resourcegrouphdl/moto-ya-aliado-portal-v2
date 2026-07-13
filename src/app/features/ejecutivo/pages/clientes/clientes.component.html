@@ -1,0 +1,44 @@
+<mt-page-header title="Clientes" description="Solicitudes de crédito que has registrado." />
+
+@if (error()) {
+  <mt-alert variant="error" title="Algo no salió bien">{{ error() }}</mt-alert>
+} @else if (loading()) {
+  <p class="clientes-loading">Cargando tus clientes…</p>
+} @else if (clientes().length === 0) {
+  <mt-empty-state
+    icon="group"
+    title="Sin clientes todavía"
+    description="Las solicitudes que registres desde 'Nueva solicitud' van a aparecer aquí."
+  />
+} @else {
+  <mt-card [padded]="false">
+    <ul class="clientes-list">
+      @for (c of clientes(); track c.id) {
+        <li class="clientes-list__item">
+          <div class="clientes-list__main">
+            <strong>{{ c.titularNombres }} {{ c.titularApellidoPaterno }} {{ c.titularApellidoMaterno }}</strong>
+            <span class="clientes-list__meta">{{ c.titularTipoDocumento }} {{ c.titularNumeroDocumento }} · {{ c.codigoSolicitud }}</span>
+          </div>
+
+          <div class="clientes-list__vehiculo">
+            @if (c.vehiculoMarca) {
+              <span>{{ c.vehiculoMarca }} {{ c.vehiculoModelo }}</span>
+              @if (c.vehiculoPrecio) {
+                <span class="clientes-list__meta">S/ {{ c.vehiculoPrecio.toLocaleString('es-PE', { minimumFractionDigits: 2 }) }}</span>
+              }
+            } @else {
+              <span class="clientes-list__empty">Sin moto registrada</span>
+            }
+          </div>
+
+          <div class="clientes-list__estado">
+            <mt-badge [variant]="estadoVariant[c.estado]">{{ estadoLabel[c.estado] }}</mt-badge>
+            @if (c.creadoEn) {
+              <span class="clientes-list__meta">{{ c.creadoEn | date: 'dd/MM/yyyy' }}</span>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  </mt-card>
+}

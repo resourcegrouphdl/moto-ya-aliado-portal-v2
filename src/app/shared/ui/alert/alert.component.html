@@ -1,0 +1,21 @@
+<mt-icon [name]="icon()" [size]="20" class="mt-alert__icon" />
+
+<div class="mt-alert__body">
+  @if (title()) {
+    <p class="mt-alert__title">{{ title() }}</p>
+  }
+  <div class="mt-alert__description">
+    <ng-content />
+  </div>
+</div>
+
+@if (dismissible()) {
+  <button
+    type="button"
+    class="mt-alert__dismiss"
+    aria-label="Cerrar aviso"
+    (click)="dismissed.emit()"
+  >
+    <mt-icon name="close" [size]="16" />
+  </button>
+}

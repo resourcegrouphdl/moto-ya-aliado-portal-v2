@@ -1,0 +1,17 @@
+<button
+  [class]="hostClasses()"
+  [type]="type()"
+  [disabled]="isDisabled()"
+  [attr.aria-label]="ariaLabel() ?? null"
+  [attr.aria-busy]="loading() ? 'true' : null"
+  mtRipple
+  [mtRippleDisabled]="isDisabled()"
+>
+  @if (loading()) {
+    <span class="mt-button__spinner" aria-hidden="true"></span>
+    <span class="mt-visually-hidden">Cargando…</span>
+  }
+  <span class="mt-button__content" [class.mt-button__content--hidden]="loading()">
+    <ng-content />
+  </span>
+</button>

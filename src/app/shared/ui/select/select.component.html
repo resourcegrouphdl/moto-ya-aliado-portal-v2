@@ -1,0 +1,66 @@
+<div
+  class="mt-field"
+  [class.mt-field--active]="open() || hasValue()"
+  [class.mt-field--focused]="open()"
+  [class.mt-field--error]="!!errorMessage()"
+  [class.mt-field--disabled]="disabled()"
+>
+  <button
+    #trigger
+    type="button"
+    cdkOverlayOrigin
+    #origin="cdkOverlayOrigin"
+    class="mt-field__control mt-select__trigger"
+    [id]="id"
+    [disabled]="disabled()"
+    [attr.aria-haspopup]="'listbox'"
+    [attr.aria-expanded]="open()"
+    (click)="toggle()"
+    (keydown)="onTriggerKeydown($event)"
+  >
+    <span class="mt-select__value">{{ selectedOption()?.label ?? '' }}</span>
+    <label [for]="id">{{ label() }}</label>
+    <mt-icon name="expand_more" [size]="18" class="mt-select__chevron" [class.mt-select__chevron--open]="open()" />
+  </button>
+
+  @if (errorMessage()) {
+    <p class="mt-field__message mt-field__message--error">{{ errorMessage() }}</p>
+  } @else if (hint()) {
+    <p class="mt-field__message">{{ hint() }}</p>
+  }
+</div>
+
+<ng-template
+  cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="origin"
+  [cdkConnectedOverlayOpen]="open()"
+  [cdkConnectedOverlayWidth]="triggerWidth()"
+  [cdkConnectedOverlayHasBackdrop]="true"
+  cdkConnectedOverlayBackdropClass="mt-overlay-backdrop-transparent"
+  (backdropClick)="close()"
+  (detach)="close()"
+>
+  <ul
+    class="mt-select__panel"
+    role="listbox"
+    tabindex="-1"
+    (keydown)="onPanelKeydown($event)"
+  >
+    @for (option of options(); track option.label; let i = $index) {
+      <li
+        role="option"
+        [attr.aria-selected]="option.value === value()"
+        class="mt-select__option"
+        [class.mt-select__option--highlighted]="i === highlightedIndex()"
+        [class.mt-select__option--selected]="option.value === value()"
+        (click)="select(option)"
+        (mouseenter)="highlightedIndex.set(i)"
+      >
+        @if (option.value === value()) {
+          <mt-icon name="check" [size]="16" />
+        }
+        <span>{{ option.label }}</span>
+      </li>
+    }
+  </ul>
+</ng-template>

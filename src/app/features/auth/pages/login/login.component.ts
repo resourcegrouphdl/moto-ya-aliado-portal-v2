@@ -1,7 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { AlertComponent } from '../../../../shared/ui/alert/alert.component';
+import { ButtonComponent } from '../../../../shared/ui/button/button.component';
+import { IconComponent } from '../../../../shared/ui/icon/icon.component';
+import { InputComponent } from '../../../../shared/ui/input/input.component';
 
 const ERROR_MESSAGES: Record<string, string> = {
   'auth/invalid-credential': 'Correo o contraseña incorrectos.',
@@ -15,7 +19,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 @Component({
   selector: 'mt-login-page',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, AlertComponent, ButtonComponent, IconComponent, InputComponent],
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -32,6 +36,13 @@ export class LoginComponent {
 
   protected loading = signal(false);
   protected errorMessage = signal<string | null>(null);
+
+  protected readonly emailError = computed(() =>
+    this.form.controls.email.invalid && this.form.controls.email.touched ? 'Ingresa un correo válido.' : undefined
+  );
+  protected readonly passwordError = computed(() =>
+    this.form.controls.password.invalid && this.form.controls.password.touched ? 'Mínimo 6 caracteres.' : undefined
+  );
 
   submit(): void {
     if (this.form.invalid) {

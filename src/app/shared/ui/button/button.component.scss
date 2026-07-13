@@ -1,0 +1,147 @@
+@use '../../../../styles/abstracts/mixins' as m;
+
+:host {
+  display: inline-flex;
+}
+
+.mt-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  overflow: hidden; // clip del ripple
+  border-radius: var(--radius-md); // 12px, prompt maestro
+  font-family: var(--font-sans);
+  font-weight: 600;
+  white-space: nowrap;
+  user-select: none;
+
+  // Solo transform/opacity/box-shadow — nunca layout (creation-gotchas).
+  transition:
+    transform var(--duration-fast) var(--ease-out-soft),
+    box-shadow var(--duration-fast) var(--ease-out-soft),
+    background-color var(--duration-fast) var(--ease-out-soft),
+    opacity var(--duration-fast) var(--ease-out-soft);
+
+  @include m.focus-ring;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  // Elevación + microanimación al hover (Emil: sutil, <300ms, nunca layout).
+  &:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+
+  &:not(:disabled):active {
+    transform: scale(0.97) translateY(0); // cookbook §10 — feedback táctil inmediato
+  }
+
+  // ---- Tamaños ----------------------------------------------------------
+  &--sm {
+    height: 32px;
+    padding: 0 var(--space-3);
+    font-size: var(--text-sm);
+  }
+  &--md {
+    height: 40px;
+    padding: 0 var(--space-5);
+    font-size: var(--text-base);
+  }
+  &--lg {
+    height: 48px;
+    padding: 0 var(--space-6);
+    font-size: var(--text-md);
+  }
+
+  &--icon-only {
+    &.mt-button--sm {
+      width: 32px;
+      padding: 0;
+    }
+    &.mt-button--md {
+      width: 40px;
+      padding: 0;
+    }
+    &.mt-button--lg {
+      width: 48px;
+      padding: 0;
+    }
+  }
+
+  // ---- Variantes ----------------------------------------------------------
+  &--primary {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    box-shadow: var(--shadow-sm);
+
+    &:not(:disabled):hover {
+      background: var(--color-primary-hover);
+      box-shadow: var(--shadow-md);
+    }
+  }
+
+  &--secondary {
+    background: var(--color-surface);
+    color: var(--color-text);
+    box-shadow: var(--shadow-sm);
+
+    &:not(:disabled):hover {
+      background: var(--color-surface-hover);
+      box-shadow: var(--shadow-md);
+    }
+  }
+
+  &--ghost {
+    background: transparent;
+    color: var(--color-text-muted);
+
+    &:not(:disabled):hover {
+      background: var(--color-primary-subtle);
+      color: var(--color-primary-hover);
+    }
+  }
+
+  &--danger {
+    background: var(--color-error);
+    color: var(--color-text-inverse);
+    box-shadow: var(--shadow-sm);
+
+    &:not(:disabled):hover {
+      background: color-mix(in srgb, var(--color-error) 88%, black);
+      box-shadow: var(--shadow-md);
+    }
+  }
+}
+
+.mt-button__content {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  &--hidden {
+    opacity: 0;
+  }
+}
+
+// Spinner de carga — funcional (comunica progreso), no decorativo, por eso
+// se mantiene incluso con reduced-motion (no hay alternativa estática útil).
+.mt-button__spinner {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: var(--radius-full);
+  opacity: 0.9;
+  animation: mt-spin 700ms linear infinite;
+}
+
+@keyframes mt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

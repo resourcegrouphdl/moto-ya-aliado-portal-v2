@@ -1,0 +1,71 @@
+@use '../../../../styles/abstracts/mixins' as m;
+@use '../../../../styles/abstracts/motion' as motion;
+
+:host {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+
+  @include motion.enter-up;
+}
+
+:host(.mt-alert--success) {
+  background: var(--color-success-bg);
+  color: color-mix(in srgb, var(--color-success) 60%, black);
+}
+:host(.mt-alert--warning) {
+  background: var(--color-warning-bg);
+  color: color-mix(in srgb, var(--color-warning) 55%, black);
+}
+:host(.mt-alert--error) {
+  background: var(--color-error-bg);
+  color: color-mix(in srgb, var(--color-error) 60%, black);
+}
+:host(.mt-alert--info) {
+  background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
+  color: color-mix(in srgb, var(--color-secondary) 55%, black);
+}
+
+.mt-alert__icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.mt-alert__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.mt-alert__title {
+  font-weight: 700;
+  margin-bottom: var(--space-1);
+}
+
+.mt-alert__description {
+  color: var(--color-text);
+  opacity: 0.85;
+}
+
+.mt-alert__dismiss {
+  @include m.focus-ring;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  opacity: 0.7;
+  transition:
+    opacity var(--duration-fast) var(--ease-out-soft),
+    background-color var(--duration-fast) var(--ease-out-soft);
+
+  &:hover {
+    opacity: 1;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+  }
+}

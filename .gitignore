@@ -40,3 +40,6 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Firebase CLI local cache (hashes de deploy, no versionar)
+.firebase/

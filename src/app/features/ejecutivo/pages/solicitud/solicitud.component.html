@@ -1,0 +1,271 @@
+<div class="wizard">
+  <header class="wizard__intro">
+    <h1>Nueva solicitud de crédito</h1>
+    <p>Registra al titular, su aval, la moto y las referencias. Cada paso se guarda al instante.</p>
+  </header>
+
+  @if (paso() !== 'completado') {
+    <ol class="stepper" aria-label="Progreso de la solicitud">
+      @for (item of pasos; track item.id; let i = $index) {
+        <li
+          class="stepper__step"
+          [class.stepper__step--active]="i === pasoIndex()"
+          [class.stepper__step--done]="i < pasoIndex()"
+          [class.stepper__step--clickable]="i < pasoIndex()"
+          (click)="irAPaso(item.id)"
+        >
+          <span class="stepper__dot">
+            @if (i < pasoIndex()) {
+              <mt-icon name="check" [size]="16" />
+            } @else {
+              <mt-icon [name]="item.icono" [size]="16" />
+            }
+          </span>
+          <span class="stepper__label">{{ item.etiqueta }}</span>
+          @if (i < pasos.length - 1) {
+            <span class="stepper__line"></span>
+          }
+        </li>
+      }
+    </ol>
+  }
+
+  @if (error()) {
+    <mt-alert variant="error" title="Algo no salió bien">{{ error() }}</mt-alert>
+  }
+
+  <!-- Paso 1: Titular -->
+  @if (paso() === 'titular') {
+    <mt-card>
+      <div card-header class="step-header">
+        <h2>Datos del titular</h2>
+        <p>La persona que solicita el crédito. Si ya tiene solicitudes con Motoya, usamos su registro existente.</p>
+      </div>
+
+      <form [formGroup]="formTitular" class="form-grid" (ngSubmit)="continuarTitular()">
+        <mt-select class="span-4" label="Tipo de documento" formControlName="tipoDocumento" [options]="tiposDocumento" />
+        <mt-input class="span-8" label="Número de documento" formControlName="numeroDocumento" icon="badge" />
+
+        <mt-input class="span-6" label="Nombres" formControlName="nombres" />
+        <mt-input class="span-6" label="Apellido paterno" formControlName="apellidoPaterno" />
+        <mt-input class="span-6" label="Apellido materno" formControlName="apellidoMaterno" />
+        <mt-input class="span-6" label="Teléfono" formControlName="telefono" type="tel" icon="call" />
+
+        <mt-input class="span-12" label="Correo electrónico (opcional)" formControlName="email" type="email" icon="mail" />
+
+        <mt-input class="span-4" label="Departamento" formControlName="departamento" />
+        <mt-input class="span-4" label="Provincia" formControlName="provincia" />
+        <mt-input class="span-4" label="Distrito" formControlName="distrito" />
+        <mt-input class="span-12" label="Dirección" formControlName="direccion" icon="home_pin" />
+      </form>
+
+      <div card-footer class="step-actions">
+        <span class="step-actions__hint">Paso 1 de 5</span>
+        <mt-button (click)="continuarTitular()" [loading]="guardando()">Continuar</mt-button>
+      </div>
+    </mt-card>
+  }
+
+  <!-- Paso 2: Avalista -->
+  @if (paso() === 'avalista') {
+    @if (historialTitular().length > 0) {
+      <mt-alert variant="warning" title="Este cliente ya tiene solicitudes anteriores" class="wizard-alert">
+        <ul class="historial-list">
+          @for (h of historialTitular(); track h.codigoSolicitud) {
+            <li class="historial-list__item">
+              <div class="historial-list__row">
+                <strong>{{ h.codigoSolicitud }}</strong>
+                <mt-badge [variant]="h.decisionFinal === 'rechazado' ? 'error' : 'neutral'">
+                  {{ h.decisionFinal || h.estado }}
+                </mt-badge>
+              </div>
+              @if (h.motivoRechazo || h.motivoDecision) {
+                <p class="historial-list__motivo">{{ h.motivoRechazo || h.motivoDecision }}</p>
+              }
+            </li>
+          }
+        </ul>
+      </mt-alert>
+    }
+
+    <mt-card>
+      <div card-header class="step-header">
+        <h2>Aval</h2>
+        <p>Opcional, pero recomendado para créditos con perfil ajustado.</p>
+      </div>
+
+      @if (!quiereAvalista()) {
+        <div class="skip-panel">
+          <mt-icon name="shield_person" [size]="28" />
+          <p>Esta solicitud continuará sin aval.</p>
+          <button type="button" class="link-button" (click)="activarAvalista()">Agregar un aval de todas formas</button>
+        </div>
+      } @else {
+        <form [formGroup]="formAvalista" class="form-grid" (ngSubmit)="continuarAvalista()">
+          <mt-select class="span-4" label="Tipo de documento" formControlName="tipoDocumento" [options]="tiposDocumento" />
+          <mt-input class="span-8" label="Número de documento" formControlName="numeroDocumento" icon="badge" />
+
+          <mt-input class="span-4" label="Nombres" formControlName="nombres" />
+          <mt-input class="span-4" label="Apellido paterno" formControlName="apellidoPaterno" />
+          <mt-input class="span-4" label="Apellido materno" formControlName="apellidoMaterno" />
+
+          <mt-input class="span-6" label="Teléfono" formControlName="telefono" type="tel" icon="call" />
+          <mt-select class="span-6" label="Relación con el titular" formControlName="relacion" [options]="relaciones" />
+        </form>
+      }
+
+      <div card-footer class="step-actions">
+        <span class="step-actions__hint">Paso 2 de 5</span>
+        <div class="step-actions__group">
+          @if (quiereAvalista()) {
+            <mt-button variant="ghost" (click)="omitirAvalista()">Omitir este paso</mt-button>
+            <mt-button (click)="continuarAvalista()" [loading]="guardando()">Continuar</mt-button>
+          }
+        </div>
+      </div>
+    </mt-card>
+  }
+
+  <!-- Paso 3: Vehículo -->
+  @if (paso() === 'vehiculo') {
+    @if (relacionCircularDetectada()) {
+      <mt-alert variant="error" title="Posible relación circular titular / aval" class="wizard-alert">
+        Este aval ya fue titular en una solicitud anterior donde el titular actual figuraba como su aval.
+        Verifica el caso antes de continuar.
+      </mt-alert>
+    }
+
+    <mt-card>
+      <div card-header class="step-header">
+        <h2>La moto</h2>
+        <p>Datos del vehículo que se va a financiar.</p>
+      </div>
+
+      <form [formGroup]="formVehiculo" class="form-grid" (ngSubmit)="continuarVehiculo()">
+        <mt-input class="span-6" label="Marca" formControlName="marca" icon="two_wheeler" />
+        <mt-input class="span-6" label="Modelo" formControlName="modelo" />
+
+        <mt-input class="span-4" label="Año" formControlName="anio" type="number" />
+        <mt-input class="span-4" label="Color" formControlName="color" />
+        <mt-input class="span-4" label="Placa (si tiene)" formControlName="placa" />
+
+        <mt-input class="span-12" label="Precio de la moto (S/)" formControlName="precioVehiculo" type="number" icon="payments" />
+      </form>
+
+      <div card-footer class="step-actions">
+        <span class="step-actions__hint">Paso 3 de 5</span>
+        <mt-button (click)="continuarVehiculo()" [loading]="guardando()">Continuar</mt-button>
+      </div>
+    </mt-card>
+  }
+
+  <!-- Paso 4: Referencias -->
+  @if (paso() === 'referencias') {
+    <mt-card>
+      <div card-header class="step-header">
+        <h2>Referencias personales</h2>
+        <p>Al menos una referencia, hasta un máximo de tres.</p>
+      </div>
+
+      @if (referencias().length > 0) {
+        <ul class="reference-list">
+          @for (ref of referencias(); track ref.id) {
+            <li class="reference-list__item">
+              <span class="reference-list__number">{{ ref.numero }}</span>
+              <div class="reference-list__body">
+                <strong>{{ ref.nombres }} {{ ref.apellidos }}</strong>
+                <span>{{ ref.telefono }} · {{ ref.relacion }}</span>
+              </div>
+              <mt-badge variant="success">Guardada</mt-badge>
+            </li>
+          }
+        </ul>
+      }
+
+      @if (puedeAgregarReferencia() && mostrarFormReferencia()) {
+        <form [formGroup]="formReferencia" class="form-grid" (ngSubmit)="agregarReferencia()">
+          <mt-input class="span-6" label="Nombres" formControlName="nombres" />
+          <mt-input class="span-6" label="Apellidos" formControlName="apellidos" />
+          <mt-input class="span-6" label="Teléfono" formControlName="telefono" type="tel" icon="call" />
+          <mt-select class="span-6" label="Relación" formControlName="relacion" [options]="relaciones" />
+        </form>
+
+        <button type="button" class="link-button link-button--action" (click)="agregarReferencia()">
+          <mt-icon name="add" [size]="18" />
+          Agregar esta referencia
+        </button>
+      }
+
+      <div card-footer class="step-actions">
+        <span class="step-actions__hint">{{ referencias().length }} de 3 referencias</span>
+        <mt-button (click)="continuarReferencias()" [disabled]="!puedeContinuarReferencias()" [loading]="guardando()">
+          Continuar
+        </mt-button>
+      </div>
+    </mt-card>
+  }
+
+  <!-- Paso 5: Revisión -->
+  @if (paso() === 'revision') {
+    <mt-card>
+      <div card-header class="step-header">
+        <h2>Revisa antes de enviar</h2>
+        <p>Confirma que los datos están correctos.</p>
+      </div>
+
+      <div class="review-grid">
+        <section class="review-block">
+          <h3><mt-icon name="person" [size]="18" /> Titular</h3>
+          <p>{{ titular()?.nombres }} {{ titular()?.apellidoPaterno }} {{ titular()?.apellidoMaterno }}</p>
+          <p class="review-block__meta">{{ titular()?.tipoDocumento }} {{ titular()?.numeroDocumento }}</p>
+        </section>
+
+        <section class="review-block">
+          <h3><mt-icon name="shield_person" [size]="18" /> Aval</h3>
+          @if (avalista(); as av) {
+            <p>{{ av.cliente.nombres }} {{ av.cliente.apellidoPaterno }} {{ av.cliente.apellidoMaterno }}</p>
+            <p class="review-block__meta">{{ av.relacion }}</p>
+          } @else {
+            <p class="review-block__empty">Sin aval registrado</p>
+          }
+        </section>
+
+        <section class="review-block">
+          <h3><mt-icon name="two_wheeler" [size]="18" /> Moto</h3>
+          <p>{{ vehiculo()?.marca }} {{ vehiculo()?.modelo }} · {{ vehiculo()?.anio }}</p>
+          <p class="review-block__meta">S/ {{ vehiculo()?.precioVehiculo }}</p>
+        </section>
+
+        <section class="review-block">
+          <h3><mt-icon name="contacts" [size]="18" /> Referencias</h3>
+          @for (ref of referencias(); track ref.id) {
+            <p>{{ ref.nombres }} {{ ref.apellidos }} <span class="review-block__meta">— {{ ref.relacion }}</span></p>
+          }
+        </section>
+      </div>
+
+      <div card-footer class="step-actions">
+        <span class="step-actions__hint">Código: {{ solicitud()?.codigoSolicitud }}</span>
+        <mt-button (click)="finalizar()">Confirmar y enviar</mt-button>
+      </div>
+    </mt-card>
+  }
+
+  <!-- Completado -->
+  @if (paso() === 'completado') {
+    <div class="success-screen">
+      <div class="success-screen__badge">
+        <mt-icon name="task_alt" [size]="40" [filled]="true" />
+      </div>
+      <h2>Solicitud registrada</h2>
+      <p>
+        El código <strong>{{ solicitud()?.codigoSolicitud }}</strong> ya está listo para que un asesor la evalúe.
+        Te avisaremos en cuanto haya una decisión.
+      </p>
+      <button type="button" class="link-button link-button--action" (click)="nuevaSolicitud()">
+        <mt-icon name="add" [size]="18" />
+        Registrar otra solicitud
+      </button>
+    </div>
+  }
+</div>

@@ -11,6 +11,7 @@ export const NAV_SECTIONS_POR_ROL: Record<RolAliado, NavSection[]> = {
     {
       title: 'Aliado Comercial',
       items: [
+        { label: 'Clientes', icon: 'group', route: '/administrador/clientes' },
         { label: 'Contratos', icon: 'description', route: '/administrador/contratos' },
         { label: 'Pagos', icon: 'payments', route: '/administrador/pagos' }
       ]

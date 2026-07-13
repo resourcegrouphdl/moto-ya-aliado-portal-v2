@@ -29,15 +29,15 @@ const ESTADO_VARIANT: Record<EstadoSolicitud, BadgeVariant> = {
 };
 
 /**
- * "Mis clientes" — solicitudes que ESTE ejecutivo registró (BC-01,
- * GET /partner/originacion/solicitudes/mis-clientes, filtrado server-side
- * por sesion.usuarioId(), nunca por un id que mande el cliente). Alcance
- * deliberado de este turno: solo lectura, sin búsqueda/filtro/paginación
- * (el legacy los tenía client-side sobre datos ya traídos — queda como
- * mejora futura barata, no bloqueante).
+ * "Clientes de la tienda" — control administrativo del administrador de
+ * aliado sobre lo que registraron TODOS los vendedores de su tienda (BC-01,
+ * GET /partner/originacion/solicitudes/clientes-tienda, filtrado server-side
+ * por sesion.tiendaId()). Mismo alcance deliberado que la vista del
+ * ejecutivo (features/ejecutivo/pages/clientes): solo lectura, sin
+ * búsqueda/filtro/paginación todavía.
  */
 @Component({
-  selector: 'mt-clientes-page',
+  selector: 'mt-clientes-tienda-page',
   standalone: true,
   imports: [DatePipe, AlertComponent, BadgeComponent, CardComponent, EmptyStateComponent, PageHeaderComponent],
   templateUrl: './clientes.component.html',
@@ -61,14 +61,14 @@ export class ClientesComponent {
   private cargar(): void {
     this.loading.set(true);
     this.error.set(null);
-    this.api.listarMisClientes().subscribe({
+    this.api.listarClientesTienda().subscribe({
       next: (clientes) => {
         this.clientes.set(clientes);
         this.loading.set(false);
       },
       error: () => {
         this.loading.set(false);
-        this.error.set('No se pudo cargar tu lista de clientes.');
+        this.error.set('No se pudo cargar la lista de clientes de la tienda.');
       }
     });
   }
