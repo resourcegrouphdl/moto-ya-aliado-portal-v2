@@ -2,7 +2,7 @@
 export const environment = {
   production: false,
   gatewayBaseUrl: 'http://localhost:8000',
-  // Restringida por referrer a http://localhost:4200/* — ver environment.ts.
+  // Restringida por referrer a http://localhost:4200/* y :4301/* — ver environment.ts.
   googleMapsApiKey: 'AIzaSyDqns-MOSzBzdAq1J4si7OiaRbHiDTCH94',
   firebase: {
     apiKey: 'AIzaSyDSm_NM4QShVmIhd_5SpJT2WG9tz4h6LLQ',
