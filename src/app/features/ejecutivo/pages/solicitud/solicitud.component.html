@@ -44,7 +44,15 @@
 
       <form [formGroup]="formTitular" class="form-grid" (ngSubmit)="continuarTitular()">
         <mt-select class="span-4" label="Tipo de documento" formControlName="tipoDocumento" [options]="tiposDocumento" />
-        <mt-input class="span-8" label="Número de documento" formControlName="numeroDocumento" icon="badge" />
+        <mt-input
+          class="span-8"
+          label="Número de documento"
+          formControlName="numeroDocumento"
+          icon="badge"
+          [loading]="buscandoDniTitular()"
+          [errorMessage]="errorDniTitular()"
+          hint="Autocompleta nombres y apellidos al escribir el documento"
+        />
 
         <mt-input class="span-6" label="Nombres" formControlName="nombres" />
         <mt-input class="span-6" label="Apellido paterno" formControlName="apellidoPaterno" />
@@ -104,7 +112,15 @@
 
       <form [formGroup]="formAvalista" class="form-grid" (ngSubmit)="continuarAvalista()">
         <mt-select class="span-4" label="Tipo de documento" formControlName="tipoDocumento" [options]="tiposDocumento" />
-        <mt-input class="span-8" label="Número de documento" formControlName="numeroDocumento" icon="badge" />
+        <mt-input
+          class="span-8"
+          label="Número de documento"
+          formControlName="numeroDocumento"
+          icon="badge"
+          [loading]="buscandoDniAvalista()"
+          [errorMessage]="errorDniAvalista()"
+          hint="Autocompleta nombres y apellidos al escribir el documento"
+        />
 
         <mt-input class="span-4" label="Nombres" formControlName="nombres" />
         <mt-input class="span-4" label="Apellido paterno" formControlName="apellidoPaterno" />

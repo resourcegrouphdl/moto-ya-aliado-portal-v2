@@ -1,11 +1,9 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  ElementRef,
   NgZone,
   OnInit,
   PLATFORM_ID,
-  ViewChild,
   booleanAttribute,
   inject,
   input,
@@ -40,9 +38,15 @@ const CENTRO_DEFAULT: google.maps.LatLngLiteral = { lat: -12.0464, lng: -77.0428
  * mvmotors-front (legacy), reescrito a señales para calzar con el resto de
  * componentes `mt-*` (OnPush + signals) en vez del estilo por decoradores +
  * mutación directa de campos del original. Sigue necesitando el cargador
- * manual de <script> de Google Maps porque Autocomplete/Geocoder se usan
- * imperativamente — @angular/google-maps solo cubre <google-map>/<map-marker>
- * como directivas, no esos dos.
+ * manual de <script> de Google Maps porque Geocoder se usa imperativamente —
+ * @angular/google-maps solo cubre <google-map>/<map-marker> como directivas.
+ *
+ * Solo GPS (clic en el mapa o arrastrar el pin) — antes tenía su propio
+ * buscador de direcciones (Places Autocomplete) que duplicaba visualmente el
+ * campo "Dirección" del formulario padre sin estar sincronizados entre sí
+ * (corregido 2026-07-16). El campo de texto libre del formulario sigue
+ * siendo la única fuente editable de la dirección; este componente solo la
+ * autocompleta por reverse-geocoding cuando el vendedor marca un punto.
  */
 @Component({
   selector: 'mt-gps-picker',
@@ -59,15 +63,10 @@ export class GpsPickerComponent implements OnInit {
   coordenadasCambiadas = output<Coordenadas>();
   addressParsed = output<DireccionParseada>();
 
-  @ViewChild('inlineSearch') inlineSearchEl?: ElementRef<HTMLInputElement>;
-  @ViewChild('modalSearch') modalSearchEl?: ElementRef<HTMLInputElement>;
-
   private readonly platformId = inject(PLATFORM_ID);
   private readonly ngZone = inject(NgZone);
 
   private geocoder: google.maps.Geocoder | null = null;
-  private inlineAutocomplete: google.maps.places.Autocomplete | null = null;
-  private modalAutocomplete: google.maps.places.Autocomplete | null = null;
 
   protected readonly estado = signal<EstadoGps>('idle');
   protected readonly mapsListo = signal(false);
@@ -80,10 +79,6 @@ export class GpsPickerComponent implements OnInit {
 
   protected readonly centro = signal<google.maps.LatLngLiteral>(CENTRO_DEFAULT);
   protected readonly zoom = signal(13);
-
-  protected readonly textoBusqueda = signal('');
-  protected readonly buscando = signal(false);
-  protected readonly errorBusqueda = signal('');
 
   protected readonly markerOptions = signal<google.maps.MarkerOptions>({
     draggable: true,
@@ -130,87 +125,7 @@ export class GpsPickerComponent implements OnInit {
 
       this.geocoder = new google.maps.Geocoder();
       this.mapsListo.set(true);
-
-      // La carga del script es asíncrona (red), así que la vista ya está lista aquí.
-      this.initInlineAutocomplete();
     });
-  }
-
-  // ── Autocomplete nativo de Google ─────────────────────────────────────────
-
-  private initInlineAutocomplete(): void {
-    const el = this.inlineSearchEl?.nativeElement;
-    if (!el) return;
-    this.inlineAutocomplete = this.crearAutocomplete(el);
-  }
-
-  private initModalAutocomplete(): void {
-    const el = this.modalSearchEl?.nativeElement;
-    if (!el || this.modalAutocomplete) return;
-    this.modalAutocomplete = this.crearAutocomplete(el);
-  }
-
-  private crearAutocomplete(inputEl: HTMLInputElement): google.maps.places.Autocomplete {
-    const ac = new google.maps.places.Autocomplete(inputEl, {
-      componentRestrictions: { country: 'pe' },
-      fields: ['address_components', 'geometry', 'formatted_address'],
-      types: ['address']
-    });
-
-    ac.addListener('place_changed', () => {
-      this.ngZone.run(() => {
-        const place = ac.getPlace();
-
-        if (!place.geometry?.location) {
-          this.buscarDireccion();
-          return;
-        }
-
-        const lat = place.geometry.location.lat();
-        const lng = place.geometry.location.lng();
-        this.textoBusqueda.set(place.formatted_address || '');
-        this.centro.set({ lat, lng });
-        this.zoom.set(17);
-        this.direccionAproximada.set(place.formatted_address || '');
-        this.actualizarCoordenadas(lat, lng, true);
-        this.emitirDireccionParseada(place.address_components || []);
-      });
-    });
-
-    return ac;
-  }
-
-  // ── Búsqueda manual (fallback si el usuario no elige sugerencia) ──────────
-
-  onBusquedaInput(event: Event): void {
-    this.textoBusqueda.set((event.target as HTMLInputElement).value);
-  }
-
-  buscarDireccion(): void {
-    const texto = this.textoBusqueda().trim();
-    if (!texto || !this.geocoder) return;
-    this.buscando.set(true);
-    this.errorBusqueda.set('');
-
-    this.geocoder.geocode({ address: `${texto}, Perú` }, (results, status) => {
-      this.ngZone.run(() => {
-        this.buscando.set(false);
-        if (status === google.maps.GeocoderStatus.OK && results?.[0]) {
-          const loc = results[0].geometry.location;
-          this.centro.set({ lat: loc.lat(), lng: loc.lng() });
-          this.zoom.set(17);
-          this.direccionAproximada.set(results[0].formatted_address);
-          this.actualizarCoordenadas(loc.lat(), loc.lng(), true);
-          this.emitirDireccionParseada(results[0].address_components || []);
-        } else {
-          this.errorBusqueda.set('No se encontró la dirección. Prueba con otro texto.');
-        }
-      });
-    });
-  }
-
-  onBusquedaKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Enter') event.preventDefault();
   }
 
   // ── Eventos del mapa ─────────────────────────────────────────────────────
@@ -238,13 +153,11 @@ export class GpsPickerComponent implements OnInit {
   abrirExpandido(): void {
     this.expandido.set(true);
     document.body.style.overflow = 'hidden';
-    setTimeout(() => this.initModalAutocomplete(), 150);
   }
 
   cerrarExpandido(): void {
     this.expandido.set(false);
     document.body.style.overflow = '';
-    this.modalAutocomplete = null;
   }
 
   confirmarYCerrar(): void {
@@ -257,21 +170,17 @@ export class GpsPickerComponent implements OnInit {
     this.coordenadas.set(null);
     this.coordenadasTexto.set('');
     this.direccionAproximada.set('');
-    this.textoBusqueda.set('');
-    this.errorBusqueda.set('');
     this.estado.set('idle');
   }
 
   // ── Helpers privados ─────────────────────────────────────────────────────
 
-  private actualizarCoordenadas(lat: number, lng: number, skipReverseGeocode = false): void {
+  private actualizarCoordenadas(lat: number, lng: number): void {
     this.coordenadas.set({ lat, lng });
     this.coordenadasTexto.set(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
     this.estado.set('capturado');
     this.coordenadasCambiadas.emit({ latitud: lat, longitud: lng });
-    if (!skipReverseGeocode) {
-      this.obtenerDireccionReversa(lat, lng);
-    }
+    this.obtenerDireccionReversa(lat, lng);
   }
 
   private obtenerDireccionReversa(lat: number, lng: number): void {

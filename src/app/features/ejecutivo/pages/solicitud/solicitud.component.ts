@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { catchError, debounceTime, distinctUntilChanged, filter, of, switchMap, throwError } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, filter, map, of, switchMap, tap, throwError } from 'rxjs';
 
 import { AlertComponent } from '../../../../shared/ui/alert/alert.component';
 import { BadgeComponent } from '../../../../shared/ui/badge/badge.component';
@@ -111,6 +111,15 @@ export class SolicitudComponent {
   protected readonly error = signal<string | null>(null);
   protected readonly mostrarFormReferencia = signal(true);
 
+  // Feedback del lookup de DNI/CEE (json.pe) — antes fallaba en silencio
+  // (catchError descartaba cualquier error) y no había ninguna señal de
+  // carga, así que el vendedor no tenía forma de saber si estaba buscando,
+  // si no encontró el documento, o si el servicio falló.
+  protected readonly buscandoDniTitular = signal(false);
+  protected readonly errorDniTitular = signal<string | undefined>(undefined);
+  protected readonly buscandoDniAvalista = signal(false);
+  protected readonly errorDniAvalista = signal<string | undefined>(undefined);
+
   // Antifraude/continuidad (BC-01) — solo informativo, nunca bloquean el
   // wizard: decide el ejecutivo. historialTitular se consulta al avanzar de
   // 'titular' (con el documento ya resuelto); relacionCircularDetectada al
@@ -186,13 +195,25 @@ export class SolicitudComponent {
         debounceTime(500),
         distinctUntilChanged(),
         filter((numero) => numero.trim().length >= 8),
+        tap(() => {
+          this.buscandoDniTitular.set(true);
+          this.errorDniTitular.set(undefined);
+        }),
         switchMap((numero) => {
           const tipo = this.formTitular.controls.tipoDocumento.value;
           const lookup$ = tipo === 'DNI' ? this.api.consultarDni(numero) : this.api.consultarCee(numero);
-          return lookup$.pipe(catchError(() => of(null)));
+          return lookup$.pipe(
+            map((resultado) => ({ resultado, error: undefined as string | undefined })),
+            catchError((err: HttpErrorResponse) => of({ resultado: null, error: this.mensajeErrorLookup(err) }))
+          );
         })
       )
-      .subscribe((resultado) => {
+      .subscribe(({ resultado, error }) => {
+        this.buscandoDniTitular.set(false);
+        if (error) {
+          this.errorDniTitular.set(error);
+          return;
+        }
         if (!resultado) return;
         this.formTitular.patchValue({
           nombres: resultado.nombres,
@@ -208,13 +229,25 @@ export class SolicitudComponent {
         debounceTime(500),
         distinctUntilChanged(),
         filter((numero) => numero.trim().length >= 8),
+        tap(() => {
+          this.buscandoDniAvalista.set(true);
+          this.errorDniAvalista.set(undefined);
+        }),
         switchMap((numero) => {
           const tipo = this.formAvalista.controls.tipoDocumento.value;
           const lookup$ = tipo === 'DNI' ? this.api.consultarDni(numero) : this.api.consultarCee(numero);
-          return lookup$.pipe(catchError(() => of(null)));
+          return lookup$.pipe(
+            map((resultado) => ({ resultado, error: undefined as string | undefined })),
+            catchError((err: HttpErrorResponse) => of({ resultado: null, error: this.mensajeErrorLookup(err) }))
+          );
         })
       )
-      .subscribe((resultado) => {
+      .subscribe(({ resultado, error }) => {
+        this.buscandoDniAvalista.set(false);
+        if (error) {
+          this.errorDniAvalista.set(error);
+          return;
+        }
         if (!resultado) return;
         this.formAvalista.patchValue({
           nombres: resultado.nombres,
@@ -222,6 +255,13 @@ export class SolicitudComponent {
           apellidoMaterno: resultado.apellidoMaterno
         });
       });
+  }
+
+  /** Nunca bloquea: el ejecutivo siempre puede tipear nombres/apellidos a mano. */
+  private mensajeErrorLookup(err: HttpErrorResponse): string {
+    if (err.status === 404) return 'No se encontró ese documento. Completa los datos manualmente.';
+    if (err.status === 403) return 'Tu usuario no tiene permiso para consultar documentos. Completa los datos manualmente.';
+    return 'No pudimos verificar el documento ahora. Completa los datos manualmente.';
   }
 
   protected onDireccionTitularParsed(data: DireccionParseada): void {
@@ -410,6 +450,8 @@ export class SolicitudComponent {
     this.error.set(null);
     this.historialTitular.set([]);
     this.relacionCircularDetectada.set(false);
+    this.errorDniTitular.set(undefined);
+    this.errorDniAvalista.set(undefined);
     this.formTitular.reset({ tipoDocumento: 'DNI', latitud: null, longitud: null });
     this.formAvalista.reset({ tipoDocumento: 'DNI', relacion: 'Padre/Madre', latitud: null, longitud: null });
     this.formVehiculo.reset({ anio: new Date().getFullYear() });

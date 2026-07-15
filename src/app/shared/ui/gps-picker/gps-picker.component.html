@@ -17,38 +17,6 @@
     }
   </div>
 
-  <div class="gps-picker__search">
-    <input
-      #inlineSearch
-      type="text"
-      [value]="textoBusqueda()"
-      (input)="onBusquedaInput($event)"
-      (keydown)="onBusquedaKeydown($event)"
-      placeholder="Escribe la dirección y selecciona una sugerencia…"
-      autocomplete="off"
-      class="gps-picker__search-input"
-    />
-    <button
-      type="button"
-      class="gps-picker__search-button"
-      [disabled]="buscando() || !textoBusqueda().trim()"
-      (click)="buscarDireccion()"
-    >
-      @if (buscando()) {
-        <span class="gps-picker__spinner"></span>
-      } @else {
-        <mt-icon name="search" [size]="16" />
-      }
-    </button>
-  </div>
-
-  @if (errorBusqueda()) {
-    <p class="gps-picker__error">
-      <mt-icon name="error" [size]="14" />
-      <span>{{ errorBusqueda() }}</span>
-    </p>
-  }
-
   <div class="gps-picker__map" [class.gps-picker__map--capturado]="coordenadas()">
     @if (!mapsListo()) {
       <div class="gps-picker__map-loading">
@@ -75,7 +43,7 @@
       @if (!coordenadas()) {
         <div class="gps-picker__map-hint">
           <mt-icon name="touch_app" [size]="16" color="#fff" />
-          <span>Escribe la dirección o toca el mapa para marcar</span>
+          <span>Toca el mapa para marcar la ubicación exacta</span>
         </div>
       }
 
@@ -108,32 +76,22 @@
         <mt-icon name="location_on" [size]="20" />
         <span>{{ label() }}</span>
       </div>
-      <button type="button" class="gps-picker__pill-button gps-picker__pill-button--icon" (click)="cerrarExpandido()">
-        <mt-icon name="close" [size]="18" />
-      </button>
-    </div>
-
-    <div class="gps-picker-modal__search">
-      <input
-        #modalSearch
-        type="text"
-        [value]="textoBusqueda()"
-        (input)="onBusquedaInput($event)"
-        (keydown)="onBusquedaKeydown($event)"
-        placeholder="Escribe la dirección y selecciona una sugerencia…"
-        autocomplete="off"
-        class="gps-picker__search-input"
-      />
-      <button type="button" class="gps-picker__pill-button" (click)="toggleModoMapa()">
-        <mt-icon [name]="modoMapa() === 'roadmap' ? 'satellite_alt' : 'map'" [size]="16" />
-      </button>
+      <div class="gps-picker-modal__header-actions">
+        <button type="button" class="gps-picker__pill-button" (click)="toggleModoMapa()">
+          <mt-icon [name]="modoMapa() === 'roadmap' ? 'satellite_alt' : 'map'" [size]="16" />
+          <span>{{ modoMapa() === 'roadmap' ? 'Satélite' : 'Mapa' }}</span>
+        </button>
+        <button type="button" class="gps-picker__pill-button gps-picker__pill-button--icon" (click)="cerrarExpandido()">
+          <mt-icon name="close" [size]="18" />
+        </button>
+      </div>
     </div>
 
     <div class="gps-picker-modal__map">
       @if (!coordenadas()) {
         <div class="gps-picker__map-hint gps-picker__map-hint--modal">
           <mt-icon name="touch_app" [size]="16" color="#fff" />
-          <span>Escribe la dirección o toca el mapa para marcar</span>
+          <span>Toca el mapa para marcar la ubicación exacta</span>
         </div>
       }
       @if (mapsListo()) {
@@ -162,7 +120,7 @@
         </div>
         <mt-button (click)="confirmarYCerrar()" class="gps-picker-modal__confirm">Confirmar esta ubicación</mt-button>
       } @else {
-        <p class="gps-picker-modal__empty-hint">Escribe una dirección o toca el mapa para marcar la ubicación</p>
+        <p class="gps-picker-modal__empty-hint">Toca el mapa para marcar la ubicación</p>
         <mt-button variant="secondary" (click)="cerrarExpandido()">Cerrar sin guardar</mt-button>
       }
     </div>

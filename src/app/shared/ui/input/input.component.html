@@ -6,7 +6,9 @@
   [class.mt-field--disabled]="disabled()"
 >
   <div class="mt-field__control">
-    @if (icon()) {
+    @if (loading()) {
+      <span class="mt-field__spinner" aria-hidden="true"></span>
+    } @else if (icon()) {
       <mt-icon [name]="icon()!" [size]="18" class="mt-field__icon" />
     }
 

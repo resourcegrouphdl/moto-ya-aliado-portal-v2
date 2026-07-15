@@ -31,6 +31,8 @@ export class InputComponent implements ControlValueAccessor {
   label = input.required<string>();
   type = input<InputType>('text');
   icon = input<string>();
+  /** Muestra un spinner en vez del ícono — para validaciones asíncronas en curso (ej. lookup de DNI). */
+  loading = input(false);
   errorMessage = input<string>();
   hint = input<string>();
   /** Se reenvía al <input> real — el atributo puesto directo en <mt-input> no llega al control interno. */
