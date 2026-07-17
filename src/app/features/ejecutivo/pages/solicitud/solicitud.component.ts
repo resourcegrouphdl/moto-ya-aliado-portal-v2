@@ -54,12 +54,13 @@ const RELACIONES: SelectOption<string>[] = [
  * sub-recursos de una Solicitud que ya existe, no campos sueltos que se
  * junten recién al final).
  *
- * Alcance deliberado de este turno: canal siempre VENTA_DIRECTA (TIENDA_ALIADA
- * exige tiendaId, que hoy no se resuelve del lado del cliente — pendiente
- * cuando el claim de tienda esté disponible en el token). Sin captura de
- * documentos/fotos (StoragePort no existe todavía en motoya-api). El paso
- * final no dispara evaluación real — BC-02 no tiene backend — solo confirma
- * que la solicitud quedó registrada.
+ * Alcance deliberado de este turno: canal siempre TIENDA_ALIADA (el vendedor
+ * que usa este wizard siempre opera desde una sesión de tienda; tiendaId lo
+ * resuelve el backend desde la sesión, nunca este componente — ver
+ * SolicitudCreditoController.crear()). Sin captura de documentos/fotos
+ * (StoragePort no existe todavía en motoya-api). El paso final no dispara
+ * evaluación real — BC-02 no tiene backend — solo confirma que la solicitud
+ * quedó registrada.
  *
  * Aval: por regulación pasó a ser siempre obligatorio (ya no se puede omitir
  * el paso) — titular y aval capturan la misma dirección+GPS de vivienda vía
@@ -310,7 +311,7 @@ export class SolicitudComponent {
         ),
         switchMap((cliente) =>
           this.api
-            .crearSolicitud({ canal: 'VENTA_DIRECTA', titularId: cliente.id, documentosMinimosCompletos: true })
+            .crearSolicitud({ canal: 'TIENDA_ALIADA', titularId: cliente.id, documentosMinimosCompletos: true })
             .pipe(switchMap((solicitud) => of({ cliente, solicitud })))
         )
       )

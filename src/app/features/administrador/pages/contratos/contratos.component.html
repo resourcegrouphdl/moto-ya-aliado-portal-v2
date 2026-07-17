@@ -1,0 +1,34 @@
+<mt-page-header
+  title="Contratos"
+  description="Contratos generados por tu tienda: estado de formalización y firma."
+/>
+
+@if (loading()) {
+  <p class="contratos-loading">Cargando…</p>
+} @else if (error()) {
+  <mt-empty-state icon="error" title="No se pudo cargar" [description]="error()!" />
+} @else if (contratos().length === 0) {
+  <mt-empty-state
+    icon="description"
+    title="Sin contratos todavía"
+    description="Los contratos se generan automáticamente cuando Motoya aprueba una evaluación de riesgo de tu tienda."
+  />
+} @else {
+  <div class="contratos-list">
+    @for (c of contratos(); track c.id) {
+      <mt-card [hoverable]="true" (click)="verDetalle(c)" class="contratos-list__item">
+        <div class="contratos-list__row">
+          <div>
+            <strong>{{ c.numeroContrato }}</strong>
+            <span class="contratos-list__fecha">{{ c.creadoEn | date: 'dd/MM/yyyy' }}</span>
+          </div>
+          <mt-badge [variant]="estadoBadgeVariant[c.estadoFormalizacion]">{{ estadoLabel[c.estadoFormalizacion] }}</mt-badge>
+        </div>
+        @if (c.precioVehiculo) {
+          <p class="contratos-list__precio">Precio moto: S/ {{ c.precioVehiculo | number: '1.2-2' }}</p>
+        }
+        <mt-icon name="chevron_right" [size]="18" class="contratos-list__chevron" />
+      </mt-card>
+    }
+  </div>
+}

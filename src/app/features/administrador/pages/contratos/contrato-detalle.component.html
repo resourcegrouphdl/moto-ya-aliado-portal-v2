@@ -1,0 +1,77 @@
+<button type="button" class="contrato-detalle__volver" (click)="volver()">
+  <mt-icon name="arrow_back" [size]="18" /> Volver a contratos
+</button>
+
+@if (loading()) {
+  <p class="contrato-detalle__loading">Cargando…</p>
+} @else if (error() && !contrato()) {
+  <mt-alert variant="error" title="No se pudo cargar">{{ error() }}</mt-alert>
+} @else if (contrato()) {
+  @let c = contrato()!;
+  <div class="contrato-detalle">
+    <mt-card>
+      <div card-header class="contrato-detalle__header">
+        <h1>{{ c.numeroContrato }}</h1>
+        <mt-badge [variant]="estadoBadgeVariant[c.estadoFormalizacion]">{{ estadoLabel[c.estadoFormalizacion] }}</mt-badge>
+      </div>
+      <dl class="contrato-detalle__facts">
+        @if (c.precioVehiculo) {
+          <div><dt>Precio de la moto</dt><dd>S/ {{ c.precioVehiculo | number: '1.2-2' }}</dd></div>
+        }
+        @if (c.inicialEsperada) {
+          <div><dt>Cuota inicial esperada</dt><dd>S/ {{ c.inicialEsperada | number: '1.2-2' }}</dd></div>
+        }
+        <div><dt>Creado</dt><dd>{{ c.creadoEn | date: 'dd/MM/yyyy HH:mm' }}</dd></div>
+      </dl>
+    </mt-card>
+
+    <mt-card>
+      <div card-header>
+        <h2>Documentos</h2>
+      </div>
+
+      @if (documentos().length === 0) {
+        <p class="contrato-detalle__empty">Sin documentos subidos todavía.</p>
+      } @else {
+        <ul class="documentos-list">
+          @for (doc of documentos(); track doc.id) {
+            <li>
+              <div class="documentos-list__row">
+                <strong>{{ tipoDocumentoLabel[doc.tipoDocumento] }}</strong>
+                <mt-badge [variant]="estadoDocumentoBadgeVariant[doc.estado]">{{ estadoDocumentoLabel[doc.estado] }}</mt-badge>
+              </div>
+              <div class="documentos-list__meta">
+                @if (doc.monto) {
+                  <span>S/ {{ doc.monto | number: '1.2-2' }}</span>
+                }
+                <a [href]="doc.url" target="_blank" rel="noopener">Ver archivo</a>
+              </div>
+              @if (doc.notas) {
+                <p class="documentos-list__notas">{{ doc.notas }}</p>
+              }
+            </li>
+          }
+        </ul>
+      }
+
+      @if (c.estadoFormalizacion === 'PENDIENTE_DOCUMENTOS' || c.estadoFormalizacion === 'PENDIENTE_FIRMA') {
+        <form [formGroup]="form" class="documentos-form">
+          @if (error()) {
+            <mt-alert variant="error" title="No se pudo subir">{{ error() }}</mt-alert>
+          }
+          <mt-select label="Tipo de documento" formControlName="tipoDocumento" [options]="tipoDocumentoOptions" />
+          @if (requiereMonto()) {
+            <mt-input label="Monto (S/)" type="number" formControlName="monto" />
+          }
+          <label class="documentos-form__file">
+            Archivo
+            <input type="file" (change)="onArchivoSeleccionado($event)" />
+          </label>
+          <mt-button [loading]="subiendo()" [disabled]="!archivoSeleccionado()" (click)="subirDocumento()">
+            Subir documento
+          </mt-button>
+        </form>
+      }
+    </mt-card>
+  </div>
+}

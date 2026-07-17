@@ -1,0 +1,48 @@
+.contratos-loading {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.contratos-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.contratos-list__item {
+  position: relative;
+  cursor: pointer;
+}
+
+.contratos-list__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+
+  strong {
+    color: var(--color-text);
+    font-size: var(--text-base);
+  }
+}
+
+.contratos-list__fecha {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
+
+.contratos-list__precio {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.contratos-list__chevron {
+  position: absolute;
+  right: var(--space-4);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+}

@@ -36,6 +36,13 @@ export const routes: Routes = [
           import('./features/administrador/pages/contratos/contratos.component').then((m) => m.ContratosComponent)
       },
       {
+        path: 'administrador/contratos/:id',
+        canActivate: [rolGuard],
+        data: { allowedRoles: ['ADMINISTRADOR_ALIADO'] },
+        loadComponent: () =>
+          import('./features/administrador/pages/contratos/contrato-detalle.component').then((m) => m.ContratoDetalleComponent)
+      },
+      {
         path: 'administrador/pagos',
         canActivate: [rolGuard],
         data: { allowedRoles: ['ADMINISTRADOR_ALIADO'] },
