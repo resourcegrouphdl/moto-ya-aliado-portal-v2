@@ -59,3 +59,20 @@ export const ESTADO_COMISION_LABEL: Record<EstadoComision, string> = {
   PENDIENTE: 'Pendiente de pago',
   PAGADA: 'Pagada'
 };
+
+// Contratos migrados (motorCalculo=LEGACY_TASA_FIJA_MIGRADO): no tienen
+// OrdenPago en Postgres, su estado se consulta en vivo contra el Firestore
+// del sistema legacy (ver /partner/tesoreria/facturas-legado).
+export type EstadoFacturaLegado = 'PAGADA' | 'PENDIENTE' | 'SIN_REGISTRO';
+
+export interface FacturaLegadoResumen {
+  contratoId: string;
+  numeroContrato: string;
+  estado: EstadoFacturaLegado;
+}
+
+export const ESTADO_FACTURA_LEGADO_LABEL: Record<EstadoFacturaLegado, string> = {
+  PAGADA: 'Pagado',
+  PENDIENTE: 'Pendiente de pago',
+  SIN_REGISTRO: 'Sin registro'
+};

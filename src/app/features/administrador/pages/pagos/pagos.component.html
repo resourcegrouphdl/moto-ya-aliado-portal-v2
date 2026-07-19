@@ -38,3 +38,26 @@
     </ul>
   </mt-card>
 }
+
+@if (errorLegado()) {
+  <mt-alert variant="error" title="Algo no salió bien">{{ errorLegado() }}</mt-alert>
+} @else if (loadingLegado()) {
+  <p class="pagos-loading">Cargando facturas de contratos anteriores…</p>
+} @else if (facturasLegado().length > 0) {
+  <h2 class="pagos-legado__titulo">Contratos anteriores</h2>
+  <mt-card [padded]="false">
+    <ul class="pagos-list">
+      @for (f of facturasLegado(); track f.contratoId) {
+        <li class="pagos-list__item pagos-list__item--legado">
+          <div class="pagos-list__main">
+            <strong>{{ f.numeroContrato }}</strong>
+          </div>
+
+          <div class="pagos-list__estado">
+            <mt-badge [variant]="estadoLegadoVariant[f.estado]">{{ estadoLegadoLabel[f.estado] }}</mt-badge>
+          </div>
+        </li>
+      }
+    </ul>
+  </mt-card>
+}
