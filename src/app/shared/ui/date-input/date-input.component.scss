@@ -1,0 +1,28 @@
+@use '../../../../styles/abstracts/field' as field;
+
+:host {
+  display: block;
+}
+
+.mt-field {
+  @include field.field-chrome;
+}
+
+input {
+  flex: 1;
+  height: 100%;
+  padding-top: var(--space-3);
+  background: transparent;
+  border: none;
+  font-size: var(--text-base);
+  color: var(--color-text);
+  letter-spacing: 0.03em;
+
+  &::placeholder {
+    color: transparent;
+  }
+
+  &:focus-visible {
+    box-shadow: none;
+  }
+}

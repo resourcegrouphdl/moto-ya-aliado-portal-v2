@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, forwardRef, input, signal } from '@
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { IconComponent } from '../icon/icon.component';
 
-export type InputType = 'text' | 'email' | 'password' | 'number' | 'tel' | 'search';
+export type InputType = 'text' | 'email' | 'password' | 'number' | 'tel' | 'search' | 'date';
 
 let nextId = 0;
 

@@ -19,8 +19,11 @@ export interface ContratoResumen {
   estadoFormalizacion: EstadoFormalizacion;
   estadoCredito: EstadoCredito | null;
   motorCalculo: string;
+  fechaFirma: string | null;
+  documentoUrl: string | null;
   creadoPor: string;
   creadoEn: string;
+  vendedorNombre: string | null;
 }
 
 export interface DocumentoContrato {

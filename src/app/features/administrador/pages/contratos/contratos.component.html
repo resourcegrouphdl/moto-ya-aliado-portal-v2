@@ -20,7 +20,7 @@
         <div class="contratos-list__row">
           <div>
             <strong>{{ c.numeroContrato }}</strong>
-            <span class="contratos-list__fecha">{{ c.creadoEn | date: 'dd/MM/yyyy' }}</span>
+            <span class="contratos-list__fecha">{{ c.creadoEn | mtDate }}</span>
           </div>
           <mt-badge [variant]="estadoBadgeVariant[c.estadoFormalizacion]">{{ estadoLabel[c.estadoFormalizacion] }}</mt-badge>
         </div>

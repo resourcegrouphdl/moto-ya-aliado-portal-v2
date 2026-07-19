@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { MtDatePipe } from '../../../../shared/pipes/mt-date.pipe';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { OriginacionApiService } from '../../../../core/originacion/originacion-api.service';
 import { EstadoSolicitud, SolicitudResumen } from '../../../../core/originacion/originacion.models';
@@ -39,7 +39,7 @@ const ESTADO_VARIANT: Record<EstadoSolicitud, BadgeVariant> = {
 @Component({
   selector: 'mt-clientes-tienda-page',
   standalone: true,
-  imports: [DatePipe, AlertComponent, BadgeComponent, CardComponent, EmptyStateComponent, PageHeaderComponent],
+  imports: [MtDatePipe, AlertComponent, BadgeComponent, CardComponent, EmptyStateComponent, PageHeaderComponent],
   templateUrl: './clientes.component.html',
   styleUrl: './clientes.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush

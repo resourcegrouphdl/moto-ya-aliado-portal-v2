@@ -1,4 +1,5 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
+import { MtDatePipe } from '../../../../shared/pipes/mt-date.pipe';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ContratoApiService } from '../../../../core/contrato/contrato-api.service';
@@ -20,7 +21,7 @@ const ESTADO_BADGE_VARIANT: Record<string, BadgeVariant> = {
 /** administrador/contratos — ya conectado a /partner/contrato/contratos (BC-03), reemplaza el placeholder anterior. */
 @Component({
   standalone: true,
-  imports: [PageHeaderComponent, EmptyStateComponent, CardComponent, BadgeComponent, IconComponent, DatePipe, DecimalPipe],
+  imports: [PageHeaderComponent, EmptyStateComponent, CardComponent, BadgeComponent, IconComponent, MtDatePipe, DecimalPipe],
   templateUrl: './contratos.component.html',
   styleUrl: './contratos.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush

@@ -1,0 +1,36 @@
+<mt-page-header title="Mis comisiones" description="Comisión generada por cada contrato activado que originaste." />
+
+@if (error()) {
+  <mt-alert variant="error" title="Algo no salió bien">{{ error() }}</mt-alert>
+} @else if (loading()) {
+  <p class="comisiones-loading">Cargando comisiones…</p>
+} @else if (comisiones().length === 0) {
+  <mt-empty-state
+    icon="payments"
+    title="Sin comisiones todavía"
+    description="Cuando uno de tus contratos se active, tu comisión va a aparecer aquí."
+  />
+} @else {
+  <mt-card [padded]="false">
+    <ul class="comisiones-list">
+      @for (c of comisiones(); track c.id) {
+        <li class="comisiones-list__item">
+          <div class="comisiones-list__monto">
+            <strong>S/ {{ c.monto.toLocaleString('es-PE', { minimumFractionDigits: 2 }) }}</strong>
+            <span class="comisiones-list__meta">Generada {{ c.creadoEn | mtDate }}</span>
+          </div>
+
+          <div class="comisiones-list__estado">
+            <mt-badge [variant]="estadoVariant[c.estado]">{{ estadoLabel[c.estado] }}</mt-badge>
+            @if (c.pagadoEn) {
+              <span class="comisiones-list__meta">Pagada {{ c.pagadoEn | mtDate }}</span>
+            }
+            @if (c.comprobanteUrl) {
+              <a [href]="c.comprobanteUrl" target="_blank" rel="noopener">Ver comprobante</a>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  </mt-card>
+}

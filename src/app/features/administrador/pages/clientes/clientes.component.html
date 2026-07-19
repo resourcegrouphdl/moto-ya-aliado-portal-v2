@@ -34,7 +34,7 @@
           <div class="clientes-list__estado">
             <mt-badge [variant]="estadoVariant[c.estado]">{{ estadoLabel[c.estado] }}</mt-badge>
             @if (c.creadoEn) {
-              <span class="clientes-list__meta">{{ c.creadoEn | date: 'dd/MM/yyyy' }}</span>
+              <span class="clientes-list__meta">{{ c.creadoEn | mtDate }}</span>
             }
           </div>
         </li>

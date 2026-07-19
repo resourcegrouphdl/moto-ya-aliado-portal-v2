@@ -1,0 +1,40 @@
+<mt-page-header title="Pagos" description="Cuotas iniciales y desembolsos que Motoya te debe por cada contrato." />
+
+@if (error()) {
+  <mt-alert variant="error" title="Algo no salió bien">{{ error() }}</mt-alert>
+} @else if (loading()) {
+  <p class="pagos-loading">Cargando pagos…</p>
+} @else if (ordenes().length === 0) {
+  <mt-empty-state
+    icon="payments"
+    title="Sin pagos todavía"
+    description="Cuando actives un contrato con un cliente, aquí aparecerán la cuota inicial y el desembolso de capital."
+  />
+} @else {
+  <mt-card [padded]="false">
+    <ul class="pagos-list">
+      @for (o of ordenes(); track o.id) {
+        <li class="pagos-list__item">
+          <div class="pagos-list__main">
+            <strong>{{ tipoLabel[o.tipo] }}</strong>
+            <span class="pagos-list__meta">Programado {{ o.fechaProgramada | mtDate }}</span>
+          </div>
+
+          <div class="pagos-list__monto">
+            <strong>S/ {{ o.monto.toLocaleString('es-PE', { minimumFractionDigits: 2 }) }}</strong>
+          </div>
+
+          <div class="pagos-list__estado">
+            <mt-badge [variant]="estadoVariant[o.estado]">{{ estadoLabel[o.estado] }}</mt-badge>
+            @if (o.referenciaConciliacion) {
+              <span class="pagos-list__meta">Ref. {{ o.referenciaConciliacion }}</span>
+            }
+            @if (o.motivoRechazo) {
+              <span class="pagos-list__meta">{{ o.motivoRechazo }}</span>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  </mt-card>
+}

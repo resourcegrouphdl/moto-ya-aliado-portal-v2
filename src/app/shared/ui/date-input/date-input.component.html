@@ -1,0 +1,34 @@
+<div
+  class="mt-field"
+  [class.mt-field--active]="focused() || hasValue()"
+  [class.mt-field--focused]="focused()"
+  [class.mt-field--error]="!!errorMessage()"
+  [class.mt-field--disabled]="disabled()"
+>
+  <div class="mt-field__control">
+    <input
+      [id]="id"
+      type="text"
+      inputmode="numeric"
+      placeholder="DD/MM/AAAA"
+      maxlength="10"
+      autocomplete="off"
+      [disabled]="disabled()"
+      [value]="texto()"
+      (input)="onInput($event)"
+      (focus)="onFocus()"
+      (blur)="onBlur()"
+      [attr.aria-invalid]="errorMessage() ? 'true' : null"
+      [attr.aria-describedby]="errorMessage() ? id + '-error' : hint() ? id + '-hint' : null"
+    />
+    <label [for]="id">{{ label() }}</label>
+  </div>
+
+  @if (errorMessage()) {
+    <p class="mt-field__message mt-field__message--error" [id]="id + '-error'">{{ errorMessage() }}</p>
+  } @else if (hint()) {
+    <p class="mt-field__message" [id]="id + '-hint'">{{ hint() }}</p>
+  } @else {
+    <p class="mt-field__message">Formato: día/mes/año</p>
+  }
+</div>

@@ -53,4 +53,15 @@ export class ContratoApiService {
   ): Observable<DocumentoContrato> {
     return this.http.post<DocumentoContrato>(`${this.base}/${contratoId}/documentos`, datos);
   }
+
+  /**
+   * Genera el PDF del contrato (cláusulas+anexos+cronograma) y lo sube a
+   * Storage — solo pide la fecha de firma, el resto ya está en el sistema
+   * (ver GenerarDocumentoContratoUseCase, motoya-api). Habilitado recién en
+   * PENDIENTE_FIRMA. La URL resultante también queda en ContratoResumen.documentoUrl
+   * tras recargar el contrato.
+   */
+  generarDocumento(contratoId: string, fechaFirma: string): Observable<{ url: string }> {
+    return this.http.post<{ url: string }>(`${this.base}/${contratoId}/documento`, { fechaFirma });
+  }
 }

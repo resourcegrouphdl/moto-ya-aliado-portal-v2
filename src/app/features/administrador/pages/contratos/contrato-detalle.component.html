@@ -11,9 +11,43 @@
   <div class="contrato-detalle">
     <mt-card>
       <div card-header class="contrato-detalle__header">
-        <h1>{{ c.numeroContrato }}</h1>
+        <div class="contrato-detalle__heading">
+          <span class="contrato-detalle__eyebrow">Contrato</span>
+          <h1>{{ c.numeroContrato }}</h1>
+        </div>
         <mt-badge [variant]="estadoBadgeVariant[c.estadoFormalizacion]">{{ estadoLabel[c.estadoFormalizacion] }}</mt-badge>
       </div>
+
+      @if (c.estadoFormalizacion === 'CANCELADO') {
+        <div class="contrato-stepper contrato-stepper--cancelado">
+          <mt-icon name="cancel" [size]="20" />
+          <span>Este contrato fue cancelado — no continúa el recorrido de formalización.</span>
+        </div>
+      } @else {
+        @let actual = pasoActualIndex();
+        <ol class="contrato-stepper">
+          @for (paso of pasos; track paso.estado; let i = $index) {
+            <li
+              class="contrato-stepper__step"
+              [class.contrato-stepper__step--done]="i < actual"
+              [class.contrato-stepper__step--current]="i === actual"
+            >
+              <span class="contrato-stepper__node">
+                @if (i < actual) {
+                  <mt-icon name="check" [size]="16" />
+                } @else {
+                  <mt-icon [name]="paso.icon" [size]="16" />
+                }
+              </span>
+              <span class="contrato-stepper__label">{{ paso.label }}</span>
+            </li>
+            @if (i < pasos.length - 1) {
+              <li class="contrato-stepper__connector" [class.contrato-stepper__connector--done]="i < actual" aria-hidden="true"></li>
+            }
+          }
+        </ol>
+      }
+
       <dl class="contrato-detalle__facts">
         @if (c.precioVehiculo) {
           <div><dt>Precio de la moto</dt><dd>S/ {{ c.precioVehiculo | number: '1.2-2' }}</dd></div>
@@ -21,7 +55,10 @@
         @if (c.inicialEsperada) {
           <div><dt>Cuota inicial esperada</dt><dd>S/ {{ c.inicialEsperada | number: '1.2-2' }}</dd></div>
         }
-        <div><dt>Creado</dt><dd>{{ c.creadoEn | date: 'dd/MM/yyyy HH:mm' }}</dd></div>
+        @if (c.vendedorNombre) {
+          <div><dt>Vendedor</dt><dd>{{ c.vendedorNombre }}</dd></div>
+        }
+        <div><dt>Creado</dt><dd>{{ c.creadoEn | mtDate: true }}</dd></div>
       </dl>
     </mt-card>
 
@@ -73,5 +110,34 @@
         </form>
       }
     </mt-card>
+
+    @if (c.estadoFormalizacion === 'PENDIENTE_FIRMA') {
+      <mt-card class="contrato-firma">
+        <div card-header>
+          <h2>Contrato para firma</h2>
+        </div>
+
+        @if (c.documentoUrl) {
+          <a class="contrato-firma__descarga" [href]="c.documentoUrl" target="_blank" rel="noopener">
+            <span class="contrato-firma__descarga-icon"><mt-icon name="task_alt" [size]="20" [filled]="true" /></span>
+            <span class="contrato-firma__descarga-texto">
+              <strong>Contrato generado</strong>
+              <span>Firma prevista el {{ c.fechaFirma | mtDate }} · click para descargar</span>
+            </span>
+            <mt-icon name="download" [size]="18" />
+          </a>
+        }
+
+        <form [formGroup]="generarForm" class="documentos-form">
+          @if (errorGenerar()) {
+            <mt-alert variant="error" title="No se pudo generar">{{ errorGenerar() }}</mt-alert>
+          }
+          <mt-date-input label="Fecha en que el cliente va a firmar" formControlName="fechaFirma" />
+          <mt-button [loading]="generando()" (click)="generarDocumento()">
+            {{ c.documentoUrl ? 'Volver a generar' : 'Generar contrato' }}
+          </mt-button>
+        </form>
+      </mt-card>
+    }
   </div>
 }
