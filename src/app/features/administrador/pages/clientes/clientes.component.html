@@ -32,9 +32,12 @@
           </div>
 
           <div class="clientes-list__estado">
-            <mt-badge [variant]="estadoVariant[c.estado]">{{ estadoLabel[c.estado] }}</mt-badge>
+            <mt-badge [variant]="estadoMostrado(c).variant">{{ estadoMostrado(c).label }}</mt-badge>
             @if (c.creadoEn) {
               <span class="clientes-list__meta">{{ c.creadoEn | mtDate }}</span>
+            }
+            @if (estadoMostrado(c).motivo) {
+              <span class="clientes-list__meta clientes-list__motivo">{{ estadoMostrado(c).motivo }}</span>
             }
           </div>
         </li>

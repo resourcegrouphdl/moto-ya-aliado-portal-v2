@@ -42,6 +42,21 @@
         <p>La persona que solicita el crédito. Si ya tiene solicitudes con Motoya, usamos su registro existente.</p>
       </div>
 
+      <h3 class="form-section-title">
+        <mt-icon name="document_scanner" [size]="16" />
+        Foto del documento
+      </h3>
+      <mt-documento-identidad-upload
+        class="wizard-ocr"
+        label="Foto del DNI/carné de extranjería (frente)"
+        [tipoDocumento]="formTitular.controls.tipoDocumento.value"
+        (extraido)="onFotoIdentidadTitular($event)"
+      />
+
+      <h3 class="form-section-title">
+        <mt-icon name="badge" [size]="16" />
+        Datos personales
+      </h3>
       <form [formGroup]="formTitular" class="form-grid" (ngSubmit)="continuarTitular()">
         <mt-select class="span-4" label="Tipo de documento" formControlName="tipoDocumento" [options]="tiposDocumento" />
         <mt-input
@@ -61,23 +76,64 @@
 
         <mt-input class="span-12" label="Correo electrónico (opcional)" formControlName="email" type="email" icon="mail" />
 
+        <mt-date-input class="span-4" label="Fecha de nacimiento" formControlName="fechaNacimiento" />
+        <mt-select class="span-4" label="Nacionalidad" formControlName="nacionalidad" [options]="nacionalidades" />
+        <div class="span-4 edad-preview">
+          <span class="edad-preview__label">Edad</span>
+          <strong class="edad-preview__valor">{{ edadTitular() !== null ? edadTitular() + ' años' : '—' }}</strong>
+        </div>
+
         <mt-input class="span-4" label="Departamento" formControlName="departamento" />
         <mt-input class="span-4" label="Provincia" formControlName="provincia" />
         <mt-input class="span-4" label="Distrito" formControlName="distrito" />
         <mt-input class="span-12" label="Dirección" formControlName="direccion" icon="home_pin" />
       </form>
 
+      <h3 class="form-section-title">
+        <mt-icon name="location_on" [size]="16" />
+        Ubicación
+      </h3>
       <mt-gps-picker
         class="wizard-gps"
         label="Ubicación GPS del domicilio del titular"
         [esRequerido]="true"
+        [direccionTexto]="direccionTitularTexto()"
         (addressParsed)="onDireccionTitularParsed($event)"
         (coordenadasCambiadas)="onCoordenadasTitular($event)"
       />
 
       <div card-footer class="step-actions">
-        <span class="step-actions__hint">Paso 1 de 5</span>
+        <span class="step-actions__hint">Paso {{ pasoIndex() + 1 }} de {{ pasos.length }}</span>
         <mt-button (click)="continuarTitular()" [loading]="guardando()">Continuar</mt-button>
+      </div>
+    </mt-card>
+  }
+
+  <!-- Paso 1b: Documentos del titular -->
+  @if (paso() === 'documentos-titular') {
+    <mt-card>
+      <div card-header class="step-header">
+        <h2>Documentos del titular</h2>
+        <p>Puedes completarlos ahora o continuar y subirlos más tarde.</p>
+      </div>
+
+      <div class="documentos-grid">
+        @for (slot of slotsDocumentosTitular; track slot.tipo) {
+          <mt-documento-upload
+            [label]="slot.label"
+            [solicitudId]="solicitud()!.id"
+            rol="TITULAR"
+            [tipo]="slot.tipo"
+            [documento]="documentoDe(documentosTitular(), slot.tipo)"
+            [nota]="slot.tipo === 'DNI_FRENTE' ? 'Ya la subiste arriba — toca Reemplazar solo si hace falta' : undefined"
+            (documentoSubido)="onDocumentoTitularSubido($event)"
+          />
+        }
+      </div>
+
+      <div card-footer class="step-actions">
+        <span class="step-actions__hint">Paso {{ pasoIndex() + 1 }} de {{ pasos.length }}</span>
+        <mt-button (click)="continuarDocumentosTitular()">Continuar</mt-button>
       </div>
     </mt-card>
   }
@@ -110,6 +166,21 @@
         <p>Requerido: toda solicitud necesita un aval.</p>
       </div>
 
+      <h3 class="form-section-title">
+        <mt-icon name="document_scanner" [size]="16" />
+        Foto del documento
+      </h3>
+      <mt-documento-identidad-upload
+        class="wizard-ocr"
+        label="Foto del DNI/carné de extranjería (frente)"
+        [tipoDocumento]="formAvalista.controls.tipoDocumento.value"
+        (extraido)="onFotoIdentidadAvalista($event)"
+      />
+
+      <h3 class="form-section-title">
+        <mt-icon name="badge" [size]="16" />
+        Datos personales
+      </h3>
       <form [formGroup]="formAvalista" class="form-grid" (ngSubmit)="continuarAvalista()">
         <mt-select class="span-4" label="Tipo de documento" formControlName="tipoDocumento" [options]="tiposDocumento" />
         <mt-input
@@ -129,23 +200,64 @@
         <mt-input class="span-6" label="Teléfono" formControlName="telefono" type="tel" icon="call" />
         <mt-select class="span-6" label="Relación con el titular" formControlName="relacion" [options]="relaciones" />
 
+        <mt-date-input class="span-4" label="Fecha de nacimiento" formControlName="fechaNacimiento" />
+        <mt-select class="span-4" label="Nacionalidad" formControlName="nacionalidad" [options]="nacionalidades" />
+        <div class="span-4 edad-preview">
+          <span class="edad-preview__label">Edad</span>
+          <strong class="edad-preview__valor">{{ edadAvalista() !== null ? edadAvalista() + ' años' : '—' }}</strong>
+        </div>
+
         <mt-input class="span-4" label="Departamento" formControlName="departamento" />
         <mt-input class="span-4" label="Provincia" formControlName="provincia" />
         <mt-input class="span-4" label="Distrito" formControlName="distrito" />
         <mt-input class="span-12" label="Dirección" formControlName="direccion" icon="home_pin" />
       </form>
 
+      <h3 class="form-section-title">
+        <mt-icon name="location_on" [size]="16" />
+        Ubicación
+      </h3>
       <mt-gps-picker
         class="wizard-gps"
         label="Ubicación GPS del domicilio del aval"
         [esRequerido]="true"
+        [direccionTexto]="direccionAvalistaTexto()"
         (addressParsed)="onDireccionAvalistaParsed($event)"
         (coordenadasCambiadas)="onCoordenadasAvalista($event)"
       />
 
       <div card-footer class="step-actions">
-        <span class="step-actions__hint">Paso 2 de 5</span>
+        <span class="step-actions__hint">Paso {{ pasoIndex() + 1 }} de {{ pasos.length }}</span>
         <mt-button (click)="continuarAvalista()" [loading]="guardando()">Continuar</mt-button>
+      </div>
+    </mt-card>
+  }
+
+  <!-- Paso 2b: Documentos del aval -->
+  @if (paso() === 'documentos-avalista') {
+    <mt-card>
+      <div card-header class="step-header">
+        <h2>Documentos del aval</h2>
+        <p>Puedes completarlos ahora o continuar y subirlos más tarde.</p>
+      </div>
+
+      <div class="documentos-grid">
+        @for (slot of slotsDocumentosAvalista; track slot.tipo) {
+          <mt-documento-upload
+            [label]="slot.label"
+            [solicitudId]="solicitud()!.id"
+            rol="AVALISTA"
+            [tipo]="slot.tipo"
+            [documento]="documentoDe(documentosAvalista(), slot.tipo)"
+            [nota]="slot.tipo === 'DNI_FRENTE' ? 'Ya la subiste arriba — toca Reemplazar solo si hace falta' : undefined"
+            (documentoSubido)="onDocumentoAvalistaSubido($event)"
+          />
+        }
+      </div>
+
+      <div card-footer class="step-actions">
+        <span class="step-actions__hint">Paso {{ pasoIndex() + 1 }} de {{ pasos.length }}</span>
+        <mt-button (click)="continuarDocumentosAvalista()">Continuar</mt-button>
       </div>
     </mt-card>
   }
@@ -177,7 +289,7 @@
       </form>
 
       <div card-footer class="step-actions">
-        <span class="step-actions__hint">Paso 3 de 5</span>
+        <span class="step-actions__hint">Paso {{ pasoIndex() + 1 }} de {{ pasos.length }}</span>
         <mt-button (click)="continuarVehiculo()" [loading]="guardando()">Continuar</mt-button>
       </div>
     </mt-card>
@@ -242,6 +354,9 @@
           <h3><mt-icon name="person" [size]="18" /> Titular</h3>
           <p>{{ titular()?.nombres }} {{ titular()?.apellidoPaterno }} {{ titular()?.apellidoMaterno }}</p>
           <p class="review-block__meta">{{ titular()?.tipoDocumento }} {{ titular()?.numeroDocumento }}</p>
+          @if (titular()?.edad !== null && titular()?.edad !== undefined) {
+            <p class="review-block__meta">{{ titular()?.edad }} años · {{ nacionalidadLabel(titular()?.nacionalidad) }}</p>
+          }
         </section>
 
         <section class="review-block">
@@ -249,6 +364,9 @@
           @if (avalista(); as av) {
             <p>{{ av.cliente.nombres }} {{ av.cliente.apellidoPaterno }} {{ av.cliente.apellidoMaterno }}</p>
             <p class="review-block__meta">{{ av.relacion }}</p>
+            @if (av.cliente.edad !== null && av.cliente.edad !== undefined) {
+              <p class="review-block__meta">{{ av.cliente.edad }} años · {{ nacionalidadLabel(av.cliente.nacionalidad) }}</p>
+            }
           } @else {
             <p class="review-block__empty">Sin aval registrado</p>
           }

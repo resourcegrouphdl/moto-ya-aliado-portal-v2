@@ -1,0 +1,40 @@
+<div class="documento-identidad" [class.documento-identidad--listo]="listo()">
+  <div class="documento-identidad__preview">
+    @if (previewUrl()) {
+      <img [src]="previewUrl()" alt="Foto subida" />
+    } @else {
+      <mt-icon name="add_a_photo" [size]="28" />
+    }
+  </div>
+
+  <div class="documento-identidad__body">
+    <div class="documento-identidad__info">
+      <mt-icon [name]="listo() ? 'check_circle' : 'upload_file'" [filled]="listo()" [size]="18" />
+      <span>{{ label() }}</span>
+    </div>
+
+    <input #fileInput type="file" accept="image/*,application/pdf" [disabled]="subiendo() || extrayendo()" (change)="onArchivoSeleccionado($event)" hidden />
+    <mt-button
+      class="documento-identidad__label"
+      variant="secondary"
+      size="md"
+      [loading]="subiendo() || extrayendo()"
+      (click)="fileInput.click()"
+    >{{ listo() ? 'Reemplazar foto' : 'Subir foto' }}</mt-button>
+  </div>
+
+  @if (extrayendo()) {
+    <div class="documento-identidad__procesando" role="status">
+      <span class="documento-identidad__spinner" aria-hidden="true"></span>
+      <span>Leyendo el documento y buscando fecha de nacimiento, nacionalidad y vencimiento…</span>
+    </div>
+  }
+
+  @if (error()) {
+    <span class="documento-identidad__error">{{ error() }}</span>
+  }
+
+  @if (avisoCalidad()) {
+    <mt-alert [variant]="avisoEsFraude() ? 'error' : 'warning'" class="documento-identidad__aviso">{{ avisoCalidad() }}</mt-alert>
+  }
+</div>

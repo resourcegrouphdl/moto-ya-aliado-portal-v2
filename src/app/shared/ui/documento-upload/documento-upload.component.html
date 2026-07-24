@@ -1,0 +1,29 @@
+<div class="documento-upload" [class.documento-upload--listo]="documentoActual()">
+  <div class="documento-upload__info">
+    <mt-icon [name]="documentoActual() ? 'check_circle' : 'upload_file'" [filled]="!!documentoActual()" [size]="18" />
+    <div class="documento-upload__textos">
+      <span>{{ label() }}</span>
+      @if (documentoActual() && nota()) {
+        <span class="documento-upload__nota">{{ nota() }}</span>
+      }
+    </div>
+  </div>
+
+  <div class="documento-upload__accion">
+    @if (documentoActual()) {
+      <a class="documento-upload__ver" [href]="documentoActual()!.url" target="_blank" rel="noopener">Ver</a>
+    }
+    <input #fileInput type="file" accept="image/*,application/pdf" [disabled]="subiendo()" (change)="onArchivoSeleccionado($event)" hidden />
+    <mt-button
+      class="documento-upload__label"
+      variant="secondary"
+      size="md"
+      [loading]="subiendo()"
+      (click)="fileInput.click()"
+    >{{ documentoActual() ? 'Reemplazar' : 'Subir' }}</mt-button>
+  </div>
+
+  @if (error()) {
+    <span class="documento-upload__error">{{ error() }}</span>
+  }
+</div>

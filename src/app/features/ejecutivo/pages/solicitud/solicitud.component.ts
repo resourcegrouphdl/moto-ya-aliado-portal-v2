@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { catchError, debounceTime, distinctUntilChanged, filter, map, of, switchMap, tap, throwError } from 'rxjs';
 
@@ -8,24 +9,46 @@ import { BadgeComponent } from '../../../../shared/ui/badge/badge.component';
 import { ButtonComponent } from '../../../../shared/ui/button/button.component';
 import { CardComponent } from '../../../../shared/ui/card/card.component';
 import { Coordenadas, DireccionParseada, GpsPickerComponent } from '../../../../shared/ui/gps-picker/gps-picker.component';
+import {
+  DocumentoIdentidadExtraido,
+  DocumentoIdentidadUploadComponent
+} from '../../../../shared/ui/documento-identidad-upload/documento-identidad-upload.component';
+import { DocumentoUploadComponent } from '../../../../shared/ui/documento-upload/documento-upload.component';
 import { IconComponent } from '../../../../shared/ui/icon/icon.component';
 import { InputComponent } from '../../../../shared/ui/input/input.component';
+import { DateInputComponent } from '../../../../shared/ui/date-input/date-input.component';
 import { SelectComponent, SelectOption } from '../../../../shared/ui/select/select.component';
 import { OriginacionApiService } from '../../../../core/originacion/originacion-api.service';
 import {
   ClienteResponse,
+  DOCUMENTOS_AVALISTA,
+  DOCUMENTOS_TITULAR,
+  DocumentoSolicitudResponse,
   HistorialSolicitudCliente,
+  NACIONALIDAD_LABEL,
+  Nacionalidad,
   ReferenciaResponse,
   SolicitudCreditoResponse,
   TipoDocumentoIdentidad,
+  TipoDocumentoSolicitud,
   VehiculoSolicitudResponse
 } from '../../../../core/originacion/originacion.models';
 
-type Paso = 'titular' | 'avalista' | 'vehiculo' | 'referencias' | 'revision' | 'completado';
+type Paso =
+  | 'titular'
+  | 'documentos-titular'
+  | 'avalista'
+  | 'documentos-avalista'
+  | 'vehiculo'
+  | 'referencias'
+  | 'revision'
+  | 'completado';
 
 const PASOS: { id: Paso; etiqueta: string; icono: string }[] = [
   { id: 'titular', etiqueta: 'Titular', icono: 'person' },
+  { id: 'documentos-titular', etiqueta: 'Docs. titular', icono: 'upload_file' },
   { id: 'avalista', etiqueta: 'Aval', icono: 'shield_person' },
+  { id: 'documentos-avalista', etiqueta: 'Docs. aval', icono: 'upload_file' },
   { id: 'vehiculo', etiqueta: 'Moto', icono: 'two_wheeler' },
   { id: 'referencias', etiqueta: 'Referencias', icono: 'contacts' },
   { id: 'revision', etiqueta: 'Revisión', icono: 'fact_check' }
@@ -35,6 +58,11 @@ const TIPOS_DOCUMENTO: SelectOption<TipoDocumentoIdentidad>[] = [
   { label: 'DNI', value: 'DNI' },
   { label: 'Carné de extranjería', value: 'CARNET_EXTRANJERIA' }
 ];
+
+const NACIONALIDAD_OPTIONS: SelectOption<Nacionalidad>[] = Object.entries(NACIONALIDAD_LABEL).map(([value, label]) => ({
+  value: value as Nacionalidad,
+  label
+}));
 
 const RELACIONES: SelectOption<string>[] = [
   { label: 'Padre / Madre', value: 'Padre/Madre' },
@@ -57,10 +85,13 @@ const RELACIONES: SelectOption<string>[] = [
  * Alcance deliberado de este turno: canal siempre TIENDA_ALIADA (el vendedor
  * que usa este wizard siempre opera desde una sesión de tienda; tiendaId lo
  * resuelve el backend desde la sesión, nunca este componente — ver
- * SolicitudCreditoController.crear()). Sin captura de documentos/fotos
- * (StoragePort no existe todavía en motoya-api). El paso final no dispara
- * evaluación real — BC-02 no tiene backend — solo confirma que la solicitud
- * quedó registrada.
+ * SolicitudCreditoController.crear()). El paso final no dispara evaluación
+ * real — BC-02 no tiene backend — solo confirma que la solicitud quedó
+ * registrada.
+ *
+ * Fecha de nacimiento / nacionalidad (2026-07-20): json.pe (DNI/CEE) no las
+ * provee, se capturan a mano. La edad se muestra en vivo en cuanto se elige
+ * la fecha (edadDe(...)) para que el vendedor nunca tenga que restar años.
  *
  * Aval: por regulación pasó a ser siempre obligatorio (ya no se puede omitir
  * el paso) — titular y aval capturan la misma dirección+GPS de vivienda vía
@@ -72,6 +103,23 @@ const RELACIONES: SelectOption<string>[] = [
  * ahora pide crédito con A de aval). Ambas consultas son informativas — se
  * muestran como aviso, nunca bloquean el wizard, la decisión es del
  * ejecutivo.
+ *
+ * Documentos KYC (2026-07-20): paso dedicado tras titular y tras aval —
+ * portado del formulario legacy (DNI frente/reverso, licencia, selfie,
+ * certificado laboral, recibo de servicio, fachada, 2 slots "otros"; SELFIE
+ * no aplica al aval). Subida directa a GCS vía signed URL, mismo patrón que
+ * los documentos de contrato (BC-03). Opcional, no bloquea el avance del
+ * wizard — el vendedor puede completarlos después si no los tiene a mano.
+ *
+ * OCR de identidad (2026-07-20): al tope de los pasos 'titular'/'avalista'
+ * hay un widget que sube la foto del DNI/carné ANTES de crear el cliente
+ * (staging, sin solicitudId) y la manda a Document AI para prellenar
+ * numeroDocumento/fechaNacimiento/nacionalidad — el patch de numeroDocumento
+ * dispara solo el lookup de json.pe ya existente (mismo valueChanges de
+ * siempre). Es puro best-effort: campos no reconocidos quedan en null, el
+ * formulario sigue 100% editable. La foto ya subida se registra sola como
+ * DNI_FRENTE en cuanto se crea la solicitud (ver registrarFotoIdentidad*Titular/
+ * Avalista), así el vendedor no la vuelve a subir en el paso de documentos.
  */
 @Component({
   selector: 'mt-solicitud-page',
@@ -83,8 +131,11 @@ const RELACIONES: SelectOption<string>[] = [
     ButtonComponent,
     CardComponent,
     GpsPickerComponent,
+    DocumentoIdentidadUploadComponent,
+    DocumentoUploadComponent,
     IconComponent,
     InputComponent,
+    DateInputComponent,
     SelectComponent
   ],
   templateUrl: './solicitud.component.html',
@@ -98,6 +149,9 @@ export class SolicitudComponent {
   protected readonly pasos = PASOS;
   protected readonly tiposDocumento = TIPOS_DOCUMENTO;
   protected readonly relaciones = RELACIONES;
+  protected readonly nacionalidades = NACIONALIDAD_OPTIONS;
+  protected readonly slotsDocumentosTitular = DOCUMENTOS_TITULAR;
+  protected readonly slotsDocumentosAvalista = DOCUMENTOS_AVALISTA;
 
   protected readonly paso = signal<Paso>('titular');
   protected readonly pasoIndex = computed(() => this.pasos.findIndex((p) => p.id === this.paso()));
@@ -107,6 +161,14 @@ export class SolicitudComponent {
   protected readonly avalista = signal<{ cliente: ClienteResponse; relacion: string } | null>(null);
   protected readonly vehiculo = signal<VehiculoSolicitudResponse | null>(null);
   protected readonly referencias = signal<ReferenciaResponse[]>([]);
+  protected readonly documentosTitular = signal<DocumentoSolicitudResponse[]>([]);
+  protected readonly documentosAvalista = signal<DocumentoSolicitudResponse[]>([]);
+
+  // Foto del DNI/carné subida a staging por mt-documento-identidad-upload
+  // ANTES de crear el cliente — se guarda acá para registrarla como
+  // DNI_FRENTE en cuanto exista la solicitud (ver continuarTitular/Avalista).
+  protected readonly fotoIdentidadTitularUrl = signal<string | null>(null);
+  protected readonly fotoIdentidadAvalistaUrl = signal<string | null>(null);
 
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -141,7 +203,9 @@ export class SolicitudComponent {
     distrito: [''],
     direccion: [''],
     latitud: [null as number | null],
-    longitud: [null as number | null]
+    longitud: [null as number | null],
+    fechaNacimiento: [''],
+    nacionalidad: ['PERU' as Nacionalidad]
   });
 
   protected readonly formAvalista = this.fb.nonNullable.group({
@@ -157,8 +221,45 @@ export class SolicitudComponent {
     direccion: [''],
     latitud: [null as number | null],
     longitud: [null as number | null],
+    fechaNacimiento: [''],
+    nacionalidad: ['PERU' as Nacionalidad],
     relacion: ['Padre/Madre', Validators.required]
   });
+
+  // Puentea el FormControl reactivo a una signal — bajo OnPush, leer
+  // formTitular.value.direccion directamente en el template no se refresca
+  // en cada tecla porque el evento nace dentro de mt-input, no en esta vista.
+  protected readonly direccionTitularTexto = toSignal(this.formTitular.controls.direccion.valueChanges, { initialValue: '' });
+  protected readonly direccionAvalistaTexto = toSignal(this.formAvalista.controls.direccion.valueChanges, { initialValue: '' });
+
+  // Edad en vivo: se recalcula apenas el vendedor elige la fecha, sin esperar
+  // el round-trip al backend (que también la calcula, para cuando se recarga
+  // el expediente después).
+  protected readonly fechaNacimientoTitularTexto = toSignal(this.formTitular.controls.fechaNacimiento.valueChanges, {
+    initialValue: ''
+  });
+  protected readonly fechaNacimientoAvalistaTexto = toSignal(this.formAvalista.controls.fechaNacimiento.valueChanges, {
+    initialValue: ''
+  });
+  protected readonly edadTitular = computed(() => this.edadDe(this.fechaNacimientoTitularTexto()));
+  protected readonly edadAvalista = computed(() => this.edadDe(this.fechaNacimientoAvalistaTexto()));
+
+  protected nacionalidadLabel(nacionalidad: Nacionalidad | null | undefined): string {
+    return nacionalidad ? NACIONALIDAD_LABEL[nacionalidad] : '—';
+  }
+
+  private edadDe(fechaIso: string): number | null {
+    if (!fechaIso) return null;
+    const nacimiento = new Date(fechaIso);
+    if (Number.isNaN(nacimiento.getTime())) return null;
+    const hoy = new Date();
+    let edad = hoy.getFullYear() - nacimiento.getFullYear();
+    const aunNoCumpleEsteAnio =
+      hoy.getMonth() < nacimiento.getMonth() ||
+      (hoy.getMonth() === nacimiento.getMonth() && hoy.getDate() < nacimiento.getDate());
+    if (aunNoCumpleEsteAnio) edad--;
+    return edad;
+  }
 
   protected readonly formVehiculo = this.fb.nonNullable.group({
     marca: ['', Validators.required],
@@ -265,6 +366,30 @@ export class SolicitudComponent {
     return 'No pudimos verificar el documento ahora. Completa los datos manualmente.';
   }
 
+  /** Prellena solo los campos que el OCR sí reconoció — numeroDocumento dispara el lookup de json.pe ya existente (valueChanges). */
+  protected onFotoIdentidadTitular({ datos, publicUrl }: DocumentoIdentidadExtraido): void {
+    this.fotoIdentidadTitularUrl.set(publicUrl);
+    this.formTitular.patchValue({
+      // Primero: si el OCR detectó un tipo distinto al marcado (subida antes
+      // de llegar al selector), corregirlo ANTES de numeroDocumento — el
+      // lookup de json.pe lee tipoDocumento.value al momento de consultar.
+      ...(datos.tipoDocumentoDetectado ? { tipoDocumento: datos.tipoDocumentoDetectado } : {}),
+      ...(datos.numeroDocumento ? { numeroDocumento: datos.numeroDocumento } : {}),
+      ...(datos.fechaNacimiento ? { fechaNacimiento: datos.fechaNacimiento } : {}),
+      ...(datos.nacionalidad ? { nacionalidad: datos.nacionalidad } : {})
+    });
+  }
+
+  protected onFotoIdentidadAvalista({ datos, publicUrl }: DocumentoIdentidadExtraido): void {
+    this.fotoIdentidadAvalistaUrl.set(publicUrl);
+    this.formAvalista.patchValue({
+      ...(datos.tipoDocumentoDetectado ? { tipoDocumento: datos.tipoDocumentoDetectado } : {}),
+      ...(datos.numeroDocumento ? { numeroDocumento: datos.numeroDocumento } : {}),
+      ...(datos.fechaNacimiento ? { fechaNacimiento: datos.fechaNacimiento } : {}),
+      ...(datos.nacionalidad ? { nacionalidad: datos.nacionalidad } : {})
+    });
+  }
+
   protected onDireccionTitularParsed(data: DireccionParseada): void {
     this.formTitular.patchValue(data);
   }
@@ -306,7 +431,9 @@ export class SolicitudComponent {
             distrito: datos.distrito,
             direccion: datos.direccion,
             latitud: datos.latitud,
-            longitud: datos.longitud
+            longitud: datos.longitud,
+            fechaNacimiento: datos.fechaNacimiento || null,
+            nacionalidad: datos.nacionalidad
           })
         ),
         switchMap((cliente) =>
@@ -320,11 +447,36 @@ export class SolicitudComponent {
           this.titular.set(cliente);
           this.solicitud.set(solicitud);
           this.guardando.set(false);
-          this.paso.set('avalista');
+          this.paso.set('documentos-titular');
           this.cargarHistorialTitular(cliente.tipoDocumento, cliente.numeroDocumento);
+          this.registrarFotoIdentidadTitularSiExiste(solicitud.id);
         },
         error: (err: HttpErrorResponse) => this.manejarError(err)
       });
+  }
+
+  /** La foto ya se subió a staging antes de crear la solicitud (mt-documento-identidad-upload) — se registra como DNI_FRENTE sin volver a subirla. */
+  private registrarFotoIdentidadTitularSiExiste(solicitudId: string): void {
+    const url = this.fotoIdentidadTitularUrl();
+    if (!url) return;
+    this.api.registrarDocumento(solicitudId, { rol: 'TITULAR', tipo: 'DNI_FRENTE', url }).subscribe({
+      next: (documento) => this.onDocumentoTitularSubido(documento),
+      error: () => {
+        /* No bloquea — el vendedor puede subirla de nuevo manualmente en el paso de documentos. */
+      }
+    });
+  }
+
+  protected onDocumentoTitularSubido(documento: DocumentoSolicitudResponse): void {
+    this.documentosTitular.update((lista) => [...lista.filter((d) => d.tipo !== documento.tipo), documento]);
+  }
+
+  protected documentoDe(lista: DocumentoSolicitudResponse[], tipo: TipoDocumentoSolicitud): DocumentoSolicitudResponse | null {
+    return lista.find((d) => d.tipo === tipo) ?? null;
+  }
+
+  continuarDocumentosTitular(): void {
+    this.paso.set('avalista');
   }
 
   /** No bloquea el avance del wizard — si la consulta falla, simplemente no se muestra el aviso. */
@@ -358,7 +510,9 @@ export class SolicitudComponent {
             distrito: datos.distrito,
             direccion: datos.direccion,
             latitud: datos.latitud,
-            longitud: datos.longitud
+            longitud: datos.longitud,
+            fechaNacimiento: datos.fechaNacimiento || null,
+            nacionalidad: datos.nacionalidad
           })
         ),
         switchMap((cliente) =>
@@ -371,11 +525,32 @@ export class SolicitudComponent {
         next: (cliente) => {
           this.avalista.set({ cliente, relacion: datos.relacion });
           this.guardando.set(false);
-          this.paso.set('vehiculo');
+          this.paso.set('documentos-avalista');
           this.verificarRelacionCircularAvalista(cliente.id);
+          this.registrarFotoIdentidadAvalistaSiExiste(solicitud.id);
         },
         error: (err: HttpErrorResponse) => this.manejarError(err)
       });
+  }
+
+  /** Misma lógica que registrarFotoIdentidadTitularSiExiste, para el aval. */
+  private registrarFotoIdentidadAvalistaSiExiste(solicitudId: string): void {
+    const url = this.fotoIdentidadAvalistaUrl();
+    if (!url) return;
+    this.api.registrarDocumento(solicitudId, { rol: 'AVALISTA', tipo: 'DNI_FRENTE', url }).subscribe({
+      next: (documento) => this.onDocumentoAvalistaSubido(documento),
+      error: () => {
+        /* No bloquea — el vendedor puede subirla de nuevo manualmente en el paso de documentos. */
+      }
+    });
+  }
+
+  protected onDocumentoAvalistaSubido(documento: DocumentoSolicitudResponse): void {
+    this.documentosAvalista.update((lista) => [...lista.filter((d) => d.tipo !== documento.tipo), documento]);
+  }
+
+  continuarDocumentosAvalista(): void {
+    this.paso.set('vehiculo');
   }
 
   /** No bloquea el avance del wizard — si la consulta falla, simplemente no se muestra el aviso. */
@@ -448,6 +623,10 @@ export class SolicitudComponent {
     this.avalista.set(null);
     this.vehiculo.set(null);
     this.referencias.set([]);
+    this.documentosTitular.set([]);
+    this.documentosAvalista.set([]);
+    this.fotoIdentidadTitularUrl.set(null);
+    this.fotoIdentidadAvalistaUrl.set(null);
     this.error.set(null);
     this.historialTitular.set([]);
     this.relacionCircularDetectada.set(false);

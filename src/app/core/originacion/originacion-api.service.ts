@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -11,13 +11,19 @@ import {
   CrearClienteRequest,
   CrearSolicitudRequest,
   DatosAvalista,
+  DatosDocumentoIdentidadExtraidos,
   DatosReferencia,
   DatosVehiculo,
+  DocumentoSolicitudResponse,
   HistorialSolicitudCliente,
   ReferenciaResponse,
+  RolPersonaSolicitud,
   SolicitudCreditoResponse,
   SolicitudResumen,
+  SolicitudSubidaDocumentoIdentidad,
+  SolicitudSubidaDocumentoSolicitud,
   TipoDocumentoIdentidad,
+  TipoDocumentoSolicitud,
   VehiculoSolicitudResponse
 } from './originacion.models';
 
@@ -94,5 +100,64 @@ export class OriginacionApiService {
 
   consultarCee(numero: string): Observable<ConsultaCeeResponse> {
     return this.http.get<ConsultaCeeResponse>(`${this.base}/lookup/cee/${numero}`);
+  }
+
+  // ── Documentos KYC (titular/aval) ────────────────────────────────────────
+
+  solicitarSubidaDocumento(solicitudId: string, nombreArchivo: string, contentType: string): Observable<SolicitudSubidaDocumentoSolicitud> {
+    return this.http.post<SolicitudSubidaDocumentoSolicitud>(`${this.base}/solicitudes/${solicitudId}/documentos/solicitar-subida`, {
+      nombreArchivo,
+      contentType
+    });
+  }
+
+  /** PUT directo a Google Cloud Storage con la signed URL — el binario nunca pasa por motoya-api. */
+  subirArchivoDocumento(solicitud: SolicitudSubidaDocumentoSolicitud, archivo: File): Observable<unknown> {
+    const headers = new HttpHeaders({
+      [solicitud.headerRequeridoNombre]: solicitud.headerRequeridoValor,
+      'Content-Type': archivo.type
+    });
+    return this.http.put(solicitud.uploadUrl, archivo, { headers });
+  }
+
+  registrarDocumento(
+    solicitudId: string,
+    datos: { rol: RolPersonaSolicitud; tipo: TipoDocumentoSolicitud; url: string }
+  ): Observable<DocumentoSolicitudResponse> {
+    return this.http.post<DocumentoSolicitudResponse>(`${this.base}/solicitudes/${solicitudId}/documentos`, datos);
+  }
+
+  listarDocumentos(solicitudId: string): Observable<DocumentoSolicitudResponse[]> {
+    return this.http.get<DocumentoSolicitudResponse[]>(`${this.base}/solicitudes/${solicitudId}/documentos`);
+  }
+
+  // ── OCR de identidad (staging, sin solicitudId — ver DocumentoIdentidadUploadComponent) ──
+
+  solicitarSubidaDocumentoIdentidad(nombreArchivo: string, contentType: string): Observable<SolicitudSubidaDocumentoIdentidad> {
+    return this.http.post<SolicitudSubidaDocumentoIdentidad>(`${this.base}/documentos-identidad/solicitar-subida`, {
+      nombreArchivo,
+      contentType
+    });
+  }
+
+  subirArchivoDocumentoIdentidad(solicitud: SolicitudSubidaDocumentoIdentidad, archivo: File): Observable<unknown> {
+    const headers = new HttpHeaders({
+      [solicitud.headerRequeridoNombre]: solicitud.headerRequeridoValor,
+      'Content-Type': archivo.type
+    });
+    return this.http.put(solicitud.uploadUrl, archivo, { headers });
+  }
+
+  /** Best-effort — motoya-api nunca falla esta llamada, devuelve campos null en vez de propagar el error si el OCR no reconoce el documento. */
+  extraerDatosDocumentoIdentidad(
+    gcsPath: string,
+    contentType: string,
+    tipoDocumento: TipoDocumentoIdentidad
+  ): Observable<DatosDocumentoIdentidadExtraidos> {
+    return this.http.post<DatosDocumentoIdentidadExtraidos>(`${this.base}/documentos-identidad/extraer`, {
+      gcsPath,
+      contentType,
+      tipoDocumento
+    });
   }
 }

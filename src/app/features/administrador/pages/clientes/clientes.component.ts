@@ -1,7 +1,7 @@
 import { MtDatePipe } from '../../../../shared/pipes/mt-date.pipe';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { OriginacionApiService } from '../../../../core/originacion/originacion-api.service';
-import { EstadoSolicitud, SolicitudResumen } from '../../../../core/originacion/originacion.models';
+import { estadoMostradoDe, EstadoSolicitud, SolicitudResumen } from '../../../../core/originacion/originacion.models';
 import { AlertComponent } from '../../../../shared/ui/alert/alert.component';
 import { BadgeComponent, BadgeVariant } from '../../../../shared/ui/badge/badge.component';
 import { CardComponent } from '../../../../shared/ui/card/card.component';
@@ -56,6 +56,10 @@ export class ClientesComponent {
 
   constructor() {
     this.cargar();
+  }
+
+  protected estadoMostrado(c: SolicitudResumen) {
+    return estadoMostradoDe(c, ESTADO_LABEL, ESTADO_VARIANT);
   }
 
   private cargar(): void {
