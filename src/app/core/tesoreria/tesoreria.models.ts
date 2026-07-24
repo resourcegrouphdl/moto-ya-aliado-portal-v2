@@ -16,6 +16,10 @@ export type EstadoComision = 'PENDIENTE' | 'PAGADA';
 export interface OrdenPagoResumen {
   id: string;
   contratoId: string;
+  numeroContrato: string | null;
+  clienteNombre: string | null;
+  vehiculoDescripcion: string | null;
+  tiendaNombre: string | null;
   tipo: TipoOrdenPago;
   monto: number;
   fechaProgramada: string;
@@ -29,6 +33,10 @@ export interface OrdenPagoResumen {
 export interface ComisionResumen {
   id: string;
   contratoId: string;
+  numeroContrato: string | null;
+  clienteNombre: string | null;
+  vehiculoDescripcion: string | null;
+  tiendaNombre: string | null;
   vendedorUsuarioId: string;
   vendedorNombre: string | null;
   monto: number;
@@ -75,4 +83,26 @@ export const ESTADO_FACTURA_LEGADO_LABEL: Record<EstadoFacturaLegado, string> = 
   PAGADA: 'Pagado',
   PENDIENTE: 'Pendiente de pago',
   SIN_REGISTRO: 'Sin registro'
+};
+
+// Comisión de vendedor de contratos migrados (motorCalculo=LEGACY_TASA_FIJA_MIGRADO):
+// vive solo en finanzas_comisiones (Firestore legacy), nunca en Postgres.
+export type EstadoComisionLegado = 'PENDIENTE' | 'EN_PROCESO' | 'PAGADO';
+
+export interface ComisionLegadoResumen {
+  id: string;
+  numeroContrato: string | null;
+  clienteNombre: string | null;
+  clienteDocumento: string | null;
+  vendedorNombre: string | null;
+  tiendaNombre: string | null;
+  montoComision: number;
+  estado: EstadoComisionLegado;
+  pagadoEn: string | null;
+}
+
+export const ESTADO_COMISION_LEGADO_LABEL: Record<EstadoComisionLegado, string> = {
+  PENDIENTE: 'Pendiente de pago',
+  EN_PROCESO: 'En proceso',
+  PAGADO: 'Pagada'
 };

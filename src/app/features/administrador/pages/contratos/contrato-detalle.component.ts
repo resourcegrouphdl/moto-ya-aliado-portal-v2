@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ContratoApiService } from '../../../../core/contrato/contrato-api.service';
 import {
   ContratoResumen,
+  CronogramaVersion,
   DocumentoContrato,
   ESTADO_DOCUMENTO_LABEL,
   ESTADO_FORMALIZACION_LABEL,
@@ -105,6 +106,8 @@ export class ContratoDetalleComponent {
   protected readonly error = signal<string | null>(null);
   protected readonly subiendo = signal(false);
   protected readonly archivoSeleccionado = signal<File | null>(null);
+  protected readonly cronograma = signal<CronogramaVersion | null>(null);
+  protected readonly loadingCronograma = signal(true);
 
   protected readonly form = this.fb.nonNullable.group({
     tipoDocumento: this.fb.nonNullable.control<TipoDocumentoContrato>('BOUCHER', Validators.required),
@@ -132,6 +135,7 @@ export class ContratoDetalleComponent {
 
   constructor() {
     this.cargar();
+    this.cargarCronograma();
   }
 
   private cargar(): void {
@@ -151,6 +155,21 @@ export class ContratoDetalleComponent {
       error: () => {
         this.loading.set(false);
         this.error.set('No se pudo cargar el contrato.');
+      }
+    });
+  }
+
+  /** Cronograma aparte (independiente de `cargar()`): 404 antes de emitirse no debe bloquear el resto de la pantalla. */
+  private cargarCronograma(): void {
+    this.loadingCronograma.set(true);
+    this.api.obtenerCronograma(this.contratoId).subscribe({
+      next: (version) => {
+        this.cronograma.set(version);
+        this.loadingCronograma.set(false);
+      },
+      error: () => {
+        this.cronograma.set(null);
+        this.loadingCronograma.set(false);
       }
     });
   }

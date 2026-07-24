@@ -16,8 +16,11 @@
       @for (o of ordenes(); track o.id) {
         <li class="pagos-list__item">
           <div class="pagos-list__main">
-            <strong>{{ tipoLabel[o.tipo] }}</strong>
-            <span class="pagos-list__meta">Programado {{ o.fechaProgramada | mtDate }}</span>
+            <strong>{{ o.numeroContrato ?? 'Contrato sin número' }}</strong>
+            <span class="pagos-list__meta"
+              >{{ o.clienteNombre ?? 'Cliente sin nombre' }}{{ o.vehiculoDescripcion ? ' · ' + o.vehiculoDescripcion : '' }}</span
+            >
+            <span class="pagos-list__meta">{{ tipoLabel[o.tipo] }} · Programado {{ o.fechaProgramada | mtDate }}</span>
           </div>
 
           <div class="pagos-list__monto">

@@ -15,18 +15,50 @@
     <ul class="comisiones-list">
       @for (c of comisiones(); track c.id) {
         <li class="comisiones-list__item">
-          <div class="comisiones-list__monto">
-            <strong>S/ {{ c.monto.toLocaleString('es-PE', { minimumFractionDigits: 2 }) }}</strong>
+          <div class="comisiones-list__main">
+            <strong>{{ c.numeroContrato ?? 'Contrato sin número' }}</strong>
+            <span class="comisiones-list__meta"
+              >{{ c.clienteNombre ?? 'Cliente sin nombre' }}{{ c.vehiculoDescripcion ? ' · ' + c.vehiculoDescripcion : '' }}</span
+            >
             <span class="comisiones-list__meta">Generada {{ c.creadoEn | mtDate }}</span>
           </div>
 
           <div class="comisiones-list__estado">
+            <strong>S/ {{ c.monto.toLocaleString('es-PE', { minimumFractionDigits: 2 }) }}</strong>
             <mt-badge [variant]="estadoVariant[c.estado]">{{ estadoLabel[c.estado] }}</mt-badge>
             @if (c.pagadoEn) {
               <span class="comisiones-list__meta">Pagada {{ c.pagadoEn | mtDate }}</span>
             }
             @if (c.comprobanteUrl) {
               <a [href]="c.comprobanteUrl" target="_blank" rel="noopener">Ver comprobante</a>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  </mt-card>
+}
+
+@if (errorLegado()) {
+  <mt-alert variant="error" title="Algo no salió bien">{{ errorLegado() }}</mt-alert>
+} @else if (loadingLegado()) {
+  <p class="comisiones-loading">Cargando comisiones de contratos anteriores…</p>
+} @else if (comisionesLegado().length > 0) {
+  <h2 class="comisiones-legado__titulo">Contratos anteriores</h2>
+  <mt-card [padded]="false">
+    <ul class="comisiones-list">
+      @for (c of comisionesLegado(); track c.id) {
+        <li class="comisiones-list__item">
+          <div class="comisiones-list__main">
+            <strong>{{ c.numeroContrato ?? 'Contrato sin número' }}</strong>
+            <span class="comisiones-list__meta">{{ c.clienteNombre ?? 'Cliente sin nombre' }}</span>
+          </div>
+
+          <div class="comisiones-list__estado">
+            <strong>S/ {{ c.montoComision.toLocaleString('es-PE', { minimumFractionDigits: 2 }) }}</strong>
+            <mt-badge [variant]="estadoLegadoVariant[c.estado]">{{ estadoLegadoLabel[c.estado] }}</mt-badge>
+            @if (c.pagadoEn) {
+              <span class="comisiones-list__meta">Pagada {{ c.pagadoEn | mtDate }}</span>
             }
           </div>
         </li>

@@ -64,6 +64,52 @@
 
     <mt-card>
       <div card-header>
+        <h2>Cronograma de cuotas</h2>
+      </div>
+
+      @if (loadingCronograma()) {
+        <p class="contrato-detalle__empty">Cargando cronograma…</p>
+      } @else if (!cronograma()) {
+        <p class="contrato-detalle__empty">Sin cronograma emitido todavía.</p>
+      } @else {
+        @let cr = cronograma()!;
+        <dl class="contrato-detalle__facts">
+          <div><dt>Monto financiado</dt><dd>S/ {{ cr.montoFinanciado | number: '1.2-2' }}</dd></div>
+          <div><dt>Cuota</dt><dd>S/ {{ cr.cuotaBase | number: '1.2-2' }}</dd></div>
+          <div><dt>TCEA</dt><dd>{{ cr.tcea | number: '1.2-2' }}%</dd></div>
+          <div><dt>Número de cuotas</dt><dd>{{ cr.numeroPeriodos }}</dd></div>
+        </dl>
+        <div class="cuotas-table-wrap">
+          <table class="cuotas-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Vencimiento</th>
+                <th>Capital</th>
+                <th>Interés</th>
+                <th>Cuota</th>
+                <th>Saldo</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (cuota of cr.cuotas; track cuota.numero) {
+                <tr>
+                  <td>{{ cuota.numero }}</td>
+                  <td>{{ cuota.fechaVencimiento | mtDate }}</td>
+                  <td>S/ {{ cuota.amortizacionCapital | number: '1.2-2' }}</td>
+                  <td>S/ {{ cuota.interes | number: '1.2-2' }}</td>
+                  <td>S/ {{ cuota.cuotaTotal | number: '1.2-2' }}</td>
+                  <td>S/ {{ cuota.saldoFinal | number: '1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </mt-card>
+
+    <mt-card>
+      <div card-header>
         <h2>Documentos</h2>
       </div>
 

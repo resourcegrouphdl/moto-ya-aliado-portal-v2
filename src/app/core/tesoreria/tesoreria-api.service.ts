@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { ComisionResumen, FacturaLegadoResumen, OrdenPagoResumen } from './tesoreria.models';
+import { ComisionLegadoResumen, ComisionResumen, FacturaLegadoResumen, OrdenPagoResumen } from './tesoreria.models';
 
 /**
  * Wrapper sobre /partner/tesoreria (BC-05/BC-06, motoya-api) — órdenes de
@@ -24,5 +24,9 @@ export class TesoreriaApiService {
 
   facturasLegadoDeMiTienda(): Observable<FacturaLegadoResumen[]> {
     return this.http.get<FacturaLegadoResumen[]>(`${this.base}/facturas-legado`);
+  }
+
+  misComisionesLegado(): Observable<ComisionLegadoResumen[]> {
+    return this.http.get<ComisionLegadoResumen[]>(`${this.base}/mis-comisiones-legado`);
   }
 }

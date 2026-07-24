@@ -2,7 +2,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { ContratoResumen, DocumentoContrato, SolicitudSubidaDocumento } from './contrato.models';
+import { ContratoResumen, CronogramaVersion, DocumentoContrato, SolicitudSubidaDocumento } from './contrato.models';
 
 /**
  * Wrapper sobre /partner/contrato/contratos (BC-03, motoya-api) — todo
@@ -24,6 +24,11 @@ export class ContratoApiService {
 
   listarDocumentos(id: string): Observable<DocumentoContrato[]> {
     return this.http.get<DocumentoContrato[]>(`${this.base}/${id}/documentos`);
+  }
+
+  /** Cronograma vigente — 404 si el contrato todavía no lo tiene emitido. */
+  obtenerCronograma(id: string): Observable<CronogramaVersion> {
+    return this.http.get<CronogramaVersion>(`${this.base}/${id}/cronograma`);
   }
 
   solicitarSubida(contratoId: string, nombreArchivo: string, contentType: string): Observable<SolicitudSubidaDocumento> {

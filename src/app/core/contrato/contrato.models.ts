@@ -40,6 +40,39 @@ export interface DocumentoContrato {
   notas: string | null;
 }
 
+export interface CuotaAmortizacion {
+  numero: number;
+  fechaVencimiento: string;
+  saldoInicial: number;
+  interes: number;
+  amortizacionCapital: number;
+  cuotaTotal: number;
+  saldoFinal: number;
+}
+
+/** Espeja CronogramaVersion de motoya-api — gap cerrado 2026-07-21: antes solo existía bajo /admin/**, la tienda no podía ver el cronograma. */
+export interface CronogramaVersion {
+  id: string;
+  contratoId: string;
+  productoCreditoId: string;
+  numeroVersion: number;
+  montoFinanciado: number;
+  teaAnual: number;
+  baseDiasAnio: number;
+  frecuencia: 'SEMANAL' | 'MENSUAL';
+  numeroPeriodos: number;
+  fechaDesembolso: string;
+  tasaPeriodica: number;
+  cuotaBase: number;
+  tcea: number;
+  tceaConvergioCorrectamente: boolean;
+  totalIntereses: number;
+  totalAPagar: number;
+  vigenteDesde: string;
+  vigenteHasta: string | null;
+  cuotas: CuotaAmortizacion[];
+}
+
 export interface SolicitudSubidaDocumento {
   uploadUrl: string;
   publicUrl: string;

@@ -1,6 +1,13 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { TesoreriaApiService } from '../../../../core/tesoreria/tesoreria-api.service';
-import { ComisionResumen, ESTADO_COMISION_LABEL, EstadoComision } from '../../../../core/tesoreria/tesoreria.models';
+import {
+  ComisionLegadoResumen,
+  ComisionResumen,
+  ESTADO_COMISION_LABEL,
+  ESTADO_COMISION_LEGADO_LABEL,
+  EstadoComision,
+  EstadoComisionLegado
+} from '../../../../core/tesoreria/tesoreria.models';
 import { MtDatePipe } from '../../../../shared/pipes/mt-date.pipe';
 import { AlertComponent } from '../../../../shared/ui/alert/alert.component';
 import { BadgeComponent, BadgeVariant } from '../../../../shared/ui/badge/badge.component';
@@ -11,6 +18,12 @@ import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-head
 const ESTADO_VARIANT: Record<EstadoComision, BadgeVariant> = {
   PENDIENTE: 'warning',
   PAGADA: 'success'
+};
+
+const ESTADO_LEGADO_VARIANT: Record<EstadoComisionLegado, BadgeVariant> = {
+  PENDIENTE: 'warning',
+  EN_PROCESO: 'warning',
+  PAGADO: 'success'
 };
 
 /**
@@ -33,11 +46,19 @@ export class ComisionesComponent {
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
 
+  protected readonly comisionesLegado = signal<ComisionLegadoResumen[]>([]);
+  protected readonly loadingLegado = signal(true);
+  protected readonly errorLegado = signal<string | null>(null);
+
   protected readonly estadoLabel = ESTADO_COMISION_LABEL;
   protected readonly estadoVariant = ESTADO_VARIANT;
 
+  protected readonly estadoLegadoLabel = ESTADO_COMISION_LEGADO_LABEL;
+  protected readonly estadoLegadoVariant = ESTADO_LEGADO_VARIANT;
+
   constructor() {
     this.cargar();
+    this.cargarLegado();
   }
 
   private cargar(): void {
@@ -51,6 +72,23 @@ export class ComisionesComponent {
       error: () => {
         this.loading.set(false);
         this.error.set('No se pudo cargar tus comisiones.');
+      }
+    });
+  }
+
+  // Contratos migrados del sistema legacy (motorCalculo=LEGACY_TASA_FIJA_MIGRADO):
+  // la comisión vive en Firestore (finanzas_comisiones), se consulta aparte.
+  private cargarLegado(): void {
+    this.loadingLegado.set(true);
+    this.errorLegado.set(null);
+    this.api.misComisionesLegado().subscribe({
+      next: (comisiones) => {
+        this.comisionesLegado.set(comisiones);
+        this.loadingLegado.set(false);
+      },
+      error: () => {
+        this.loadingLegado.set(false);
+        this.errorLegado.set('No se pudo cargar tus comisiones de contratos anteriores.');
       }
     });
   }
