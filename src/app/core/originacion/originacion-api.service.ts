@@ -15,6 +15,7 @@ import {
   DatosReferencia,
   DatosVehiculo,
   DocumentoSolicitudResponse,
+  ExpedienteSolicitudResponse,
   HistorialSolicitudCliente,
   ReferenciaResponse,
   RolPersonaSolicitud,
@@ -59,12 +60,32 @@ export class OriginacionApiService {
     return this.http.post<SolicitudCreditoResponse>(`${this.base}/solicitudes`, datos);
   }
 
+  /** Detalle completo para la pantalla "mi solicitud" del vendedor (fase 3) — titular/avalista/vehículo/referencias. */
+  obtenerExpediente(solicitudId: string): Observable<ExpedienteSolicitudResponse> {
+    return this.http.get<ExpedienteSolicitudResponse>(`${this.base}/solicitudes/${solicitudId}/expediente`);
+  }
+
+  /** Se llama tras subir los documentos mínimos de titular y aval — ver MarcarSolicitudCompletaUseCase en motoya-api. */
+  marcarSolicitudCompleta(solicitudId: string): Observable<SolicitudCreditoResponse> {
+    return this.http.post<SolicitudCreditoResponse>(`${this.base}/solicitudes/${solicitudId}/marcar-completa`, {});
+  }
+
   agregarAvalista(solicitudId: string, datos: DatosAvalista): Observable<AvalistaResponse> {
     return this.http.post<AvalistaResponse>(`${this.base}/solicitudes/${solicitudId}/avalista`, datos);
   }
 
+  /** Quita el aval actual y agrega el nuevo en la misma operación — ver ReemplazarAvalistaUseCase. */
+  reemplazarAvalista(solicitudId: string, datos: DatosAvalista): Observable<AvalistaResponse> {
+    return this.http.put<AvalistaResponse>(`${this.base}/solicitudes/${solicitudId}/avalista`, datos);
+  }
+
   agregarVehiculo(solicitudId: string, datos: DatosVehiculo): Observable<VehiculoSolicitudResponse> {
     return this.http.post<VehiculoSolicitudResponse>(`${this.base}/solicitudes/${solicitudId}/vehiculo`, datos);
+  }
+
+  /** Reemplaza los datos del vehículo ya registrado — se usa al retroceder al paso "Moto" y volver a tocar "Continuar". */
+  actualizarVehiculo(solicitudId: string, datos: DatosVehiculo): Observable<VehiculoSolicitudResponse> {
+    return this.http.put<VehiculoSolicitudResponse>(`${this.base}/solicitudes/${solicitudId}/vehiculo`, datos);
   }
 
   agregarReferencia(solicitudId: string, datos: DatosReferencia): Observable<ReferenciaResponse> {
@@ -129,6 +150,11 @@ export class OriginacionApiService {
 
   listarDocumentos(solicitudId: string): Observable<DocumentoSolicitudResponse[]> {
     return this.http.get<DocumentoSolicitudResponse[]>(`${this.base}/solicitudes/${solicitudId}/documentos`);
+  }
+
+  /** Solo para documentos RECHAZADO/OBSERVADO — sube uno nuevo con solicitarSubidaDocumento()+subirArchivoDocumento() y confirma acá. Vuelve a PENDIENTE. */
+  reemplazarDocumento(solicitudId: string, documentoId: string, url: string): Observable<DocumentoSolicitudResponse> {
+    return this.http.put<DocumentoSolicitudResponse>(`${this.base}/solicitudes/${solicitudId}/documentos/${documentoId}/reemplazar`, { url });
   }
 
   // ── OCR de identidad (staging, sin solicitudId — ver DocumentoIdentidadUploadComponent) ──

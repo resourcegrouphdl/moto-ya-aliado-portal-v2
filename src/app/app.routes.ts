@@ -49,6 +49,13 @@ export const routes: Routes = [
         loadComponent: () => import('./features/administrador/pages/pagos/pagos.component').then((m) => m.PagosComponent)
       },
       {
+        path: 'administrador/solicitud/:id',
+        canActivate: [rolGuard],
+        data: { allowedRoles: ['ADMINISTRADOR_ALIADO'] },
+        loadComponent: () =>
+          import('./features/ejecutivo/pages/solicitud-detail/solicitud-detail.component').then((m) => m.SolicitudDetailComponent)
+      },
+      {
         path: 'ejecutivo/clientes',
         canActivate: [rolGuard],
         data: { allowedRoles: ['EJECUTIVO_ALIADO'] },
@@ -60,6 +67,13 @@ export const routes: Routes = [
         data: { allowedRoles: ['EJECUTIVO_ALIADO'] },
         loadComponent: () =>
           import('./features/ejecutivo/pages/solicitud/solicitud.component').then((m) => m.SolicitudComponent)
+      },
+      {
+        path: 'ejecutivo/solicitud/:id',
+        canActivate: [rolGuard],
+        data: { allowedRoles: ['EJECUTIVO_ALIADO'] },
+        loadComponent: () =>
+          import('./features/ejecutivo/pages/solicitud-detail/solicitud-detail.component').then((m) => m.SolicitudDetailComponent)
       },
       {
         path: 'ejecutivo/calculadora',

@@ -1,5 +1,6 @@
 import { MtDatePipe } from '../../../../shared/pipes/mt-date.pipe';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { OriginacionApiService } from '../../../../core/originacion/originacion-api.service';
 import { estadoMostradoDe, EstadoSolicitud, SolicitudResumen } from '../../../../core/originacion/originacion.models';
 import { AlertComponent } from '../../../../shared/ui/alert/alert.component';
@@ -39,7 +40,7 @@ const ESTADO_VARIANT: Record<EstadoSolicitud, BadgeVariant> = {
 @Component({
   selector: 'mt-clientes-tienda-page',
   standalone: true,
-  imports: [MtDatePipe, AlertComponent, BadgeComponent, CardComponent, EmptyStateComponent, PageHeaderComponent],
+  imports: [MtDatePipe, RouterLink, AlertComponent, BadgeComponent, CardComponent, EmptyStateComponent, PageHeaderComponent],
   templateUrl: './clientes.component.html',
   styleUrl: './clientes.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush

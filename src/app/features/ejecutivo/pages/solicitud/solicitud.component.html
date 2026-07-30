@@ -76,9 +76,10 @@
 
         <mt-input class="span-12" label="Correo electrónico (opcional)" formControlName="email" type="email" icon="mail" />
 
-        <mt-date-input class="span-4" label="Fecha de nacimiento" formControlName="fechaNacimiento" />
-        <mt-select class="span-4" label="Nacionalidad" formControlName="nacionalidad" [options]="nacionalidades" />
-        <div class="span-4 edad-preview">
+        <mt-date-input class="span-3" label="Fecha de nacimiento" formControlName="fechaNacimiento" />
+        <mt-select class="span-3" label="Nacionalidad" formControlName="nacionalidad" [options]="nacionalidades" />
+        <mt-select class="span-3" label="Estado civil" formControlName="estadoCivil" [options]="estadosCiviles" />
+        <div class="span-3 edad-preview">
           <span class="edad-preview__label">Edad</span>
           <strong class="edad-preview__valor">{{ edadTitular() !== null ? edadTitular() + ' años' : '—' }}</strong>
         </div>
@@ -200,9 +201,10 @@
         <mt-input class="span-6" label="Teléfono" formControlName="telefono" type="tel" icon="call" />
         <mt-select class="span-6" label="Relación con el titular" formControlName="relacion" [options]="relaciones" />
 
-        <mt-date-input class="span-4" label="Fecha de nacimiento" formControlName="fechaNacimiento" />
-        <mt-select class="span-4" label="Nacionalidad" formControlName="nacionalidad" [options]="nacionalidades" />
-        <div class="span-4 edad-preview">
+        <mt-date-input class="span-3" label="Fecha de nacimiento" formControlName="fechaNacimiento" />
+        <mt-select class="span-3" label="Nacionalidad" formControlName="nacionalidad" [options]="nacionalidades" />
+        <mt-select class="span-3" label="Estado civil" formControlName="estadoCivil" [options]="estadosCiviles" />
+        <div class="span-3 edad-preview">
           <span class="edad-preview__label">Edad</span>
           <strong class="edad-preview__valor">{{ edadAvalista() !== null ? edadAvalista() + ' años' : '—' }}</strong>
         </div>
@@ -285,7 +287,14 @@
         <mt-input class="span-4" label="Color" formControlName="color" />
         <mt-input class="span-4" label="Placa (si tiene)" formControlName="placa" />
 
+        <mt-input class="span-6" label="N° de motor" formControlName="numeroMotor" />
+        <mt-input class="span-6" label="N° de chasis" formControlName="numeroChasis" />
+
         <mt-input class="span-12" label="Precio de la moto (S/)" formControlName="precioVehiculo" type="number" icon="payments" />
+
+        <mt-input class="span-6" label="Inicial disponible (S/)" formControlName="inicialIngresada" type="number" icon="savings" />
+        <mt-input class="span-6" label="Cuotas deseadas" formControlName="numeroPeriodos" type="number" />
+        <p class="span-12 form-hint">Lo que pide el cliente — es referencial, riesgo define el financiamiento final al evaluar.</p>
       </form>
 
       <div card-footer class="step-actions">
@@ -333,7 +342,7 @@
       }
 
       <div card-footer class="step-actions">
-        <span class="step-actions__hint">{{ referencias().length }} de 3 referencias</span>
+        <span class="step-actions__hint">{{ referencias().length }} de 3 referencias (mínimo 2)</span>
         <mt-button (click)="continuarReferencias()" [disabled]="!puedeContinuarReferencias()" [loading]="guardando()">
           Continuar
         </mt-button>
@@ -355,7 +364,7 @@
           <p>{{ titular()?.nombres }} {{ titular()?.apellidoPaterno }} {{ titular()?.apellidoMaterno }}</p>
           <p class="review-block__meta">{{ titular()?.tipoDocumento }} {{ titular()?.numeroDocumento }}</p>
           @if (titular()?.edad !== null && titular()?.edad !== undefined) {
-            <p class="review-block__meta">{{ titular()?.edad }} años · {{ nacionalidadLabel(titular()?.nacionalidad) }}</p>
+            <p class="review-block__meta">{{ titular()?.edad }} años · {{ nacionalidadLabel(titular()?.nacionalidad) }} · {{ estadoCivilLabel(titular()?.estadoCivil) }}</p>
           }
         </section>
 
@@ -365,7 +374,7 @@
             <p>{{ av.cliente.nombres }} {{ av.cliente.apellidoPaterno }} {{ av.cliente.apellidoMaterno }}</p>
             <p class="review-block__meta">{{ av.relacion }}</p>
             @if (av.cliente.edad !== null && av.cliente.edad !== undefined) {
-              <p class="review-block__meta">{{ av.cliente.edad }} años · {{ nacionalidadLabel(av.cliente.nacionalidad) }}</p>
+              <p class="review-block__meta">{{ av.cliente.edad }} años · {{ nacionalidadLabel(av.cliente.nacionalidad) }} · {{ estadoCivilLabel(av.cliente.estadoCivil) }}</p>
             }
           } @else {
             <p class="review-block__empty">Sin aval registrado</p>
@@ -376,6 +385,12 @@
           <h3><mt-icon name="two_wheeler" [size]="18" /> Moto</h3>
           <p>{{ vehiculo()?.marca }} {{ vehiculo()?.modelo }} · {{ vehiculo()?.anio }}</p>
           <p class="review-block__meta">S/ {{ vehiculo()?.precioVehiculo }}</p>
+          @if (vehiculo()?.inicialIngresada || vehiculo()?.numeroPeriodos) {
+            <p class="review-block__meta">
+              Pide: @if (vehiculo()?.inicialIngresada) { S/ {{ vehiculo()?.inicialIngresada }} de inicial }
+              @if (vehiculo()?.numeroPeriodos) { · {{ vehiculo()?.numeroPeriodos }} cuotas }
+            </p>
+          }
         </section>
 
         <section class="review-block">

@@ -60,6 +60,19 @@
         }
         <div><dt>Creado</dt><dd>{{ c.creadoEn | mtDate: true }}</dd></div>
       </dl>
+
+      @if (c.vehiculoReferencia; as v) {
+        <p class="documentos-subtitulo">Vehículo registrado en la venta — usa estos datos al subir la factura</p>
+        <dl class="contrato-detalle__facts">
+          <div><dt>Marca / modelo</dt><dd>{{ v.marca }} {{ v.modelo }} ({{ v.anio }})</dd></div>
+          @if (v.color) {
+            <div><dt>Color</dt><dd>{{ v.color }}</dd></div>
+          }
+          @if (v.numeroChasis) {
+            <div><dt>Chasis</dt><dd>{{ v.numeroChasis }}</dd></div>
+          }
+        </dl>
+      }
     </mt-card>
 
     <mt-card>
@@ -129,6 +142,11 @@
                 }
                 <a [href]="doc.url" target="_blank" rel="noopener">Ver archivo</a>
               </div>
+              @if (doc.tipoDocumento === 'FACTURA' && doc.numeroChasis) {
+                <p class="documentos-list__notas">
+                  {{ doc.marca }} {{ doc.modelo }} ({{ doc.anio }}) · {{ doc.color }} · Chasis {{ doc.numeroChasis }}
+                </p>
+              }
               @if (doc.notas) {
                 <p class="documentos-list__notas">{{ doc.notas }}</p>
               }
@@ -145,6 +163,13 @@
           <mt-select label="Tipo de documento" formControlName="tipoDocumento" [options]="tipoDocumentoOptions" />
           @if (requiereMonto()) {
             <mt-input label="Monto (S/)" type="number" formControlName="monto" />
+          }
+          @if (esFactura()) {
+            <mt-input label="Marca" formControlName="marca" />
+            <mt-input label="Modelo" formControlName="modelo" />
+            <mt-input label="Año" type="number" formControlName="anio" />
+            <mt-input label="Color" formControlName="color" />
+            <mt-input label="N° de chasis" formControlName="numeroChasis" />
           }
           <label class="documentos-form__file">
             Archivo
@@ -168,21 +193,21 @@
             <span class="contrato-firma__descarga-icon"><mt-icon name="task_alt" [size]="20" [filled]="true" /></span>
             <span class="contrato-firma__descarga-texto">
               <strong>Contrato generado</strong>
-              <span>Firma prevista el {{ c.fechaFirma | mtDate }} · click para descargar</span>
+              <span>Firmado el {{ c.fechaFirma | mtDate }} · click para descargar</span>
             </span>
             <mt-icon name="download" [size]="18" />
           </a>
         }
 
-        <form [formGroup]="generarForm" class="documentos-form">
-          @if (errorGenerar()) {
-            <mt-alert variant="error" title="No se pudo generar">{{ errorGenerar() }}</mt-alert>
-          }
-          <mt-date-input label="Fecha en que el cliente va a firmar" formControlName="fechaFirma" />
-          <mt-button [loading]="generando()" (click)="generarDocumento()">
-            {{ c.documentoUrl ? 'Volver a generar' : 'Generar contrato' }}
-          </mt-button>
-        </form>
+        @if (errorGenerar()) {
+          <mt-alert variant="error" title="No se pudo generar">{{ errorGenerar() }}</mt-alert>
+        }
+        <p class="contrato-firma__hint">
+          Genera el contrato justo cuando el cliente esté presente para firmarlo — queda fechado con el día de hoy.
+        </p>
+        <mt-button [loading]="generando()" (click)="generarDocumento()">
+          {{ c.documentoUrl ? 'Volver a generar' : 'Generar contrato' }}
+        </mt-button>
       </mt-card>
     }
   </div>

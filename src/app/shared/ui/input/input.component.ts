@@ -62,8 +62,18 @@ export class InputComponent implements ControlValueAccessor {
     this.onTouched();
   }
 
-  writeValue(value: string): void {
-    this.value.set(value ?? '');
+  /**
+   * {@code value} llega tal cual el FormControl lo tenga tipado — con
+   * formularios numéricos ({@code fb.control<number>(0)}) esto es un
+   * `number`, no el `string` que declara la firma. `value ?? ''` solo
+   * cubre null/undefined: un 0 numérico pasaba crudo al signal y
+   * `.length` sobre un number es `undefined`, así que `hasValue()` nunca
+   * detectaba el "0" como valor presente — el label flotante se quedaba
+   * superpuesto con el ícono y el dígito. String(value) lo cubre para
+   * cualquier tipo primitivo que llegue.
+   */
+  writeValue(value: string | number | null | undefined): void {
+    this.value.set(value === null || value === undefined ? '' : String(value));
   }
 
   registerOnChange(fn: (value: string) => void): void {

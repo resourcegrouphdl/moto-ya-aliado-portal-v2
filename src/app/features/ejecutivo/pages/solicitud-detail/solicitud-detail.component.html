@@ -1,0 +1,130 @@
+<a [routerLink]="volverLink()" class="solicitud-detail__back">
+  <mt-icon name="arrow_back" [size]="16" /> {{ volverLabel() }}
+</a>
+
+@if (loading()) {
+  <p class="solicitud-detail__loading">Cargando…</p>
+} @else if (error()) {
+  <mt-alert variant="error" title="No se pudo cargar">{{ error() }}</mt-alert>
+} @else {
+  @if (expediente(); as exp) {
+    <mt-page-header
+      [title]="exp.solicitud.codigoSolicitud"
+      [description]="exp.titular.nombres + ' ' + exp.titular.apellidoPaterno + ' ' + exp.titular.apellidoMaterno"
+    />
+
+    <div class="solicitud-detail__estado">
+      <mt-badge [variant]="estadoVariant[exp.solicitud.estado]">{{ estadoLabel[exp.solicitud.estado] }}</mt-badge>
+      @if (exp.vehiculo) {
+        <span class="solicitud-detail__meta">{{ exp.vehiculo.marca }} {{ exp.vehiculo.modelo }} · S/ {{ exp.vehiculo.precioVehiculo }}</span>
+      }
+    </div>
+
+    <mt-card>
+      <div card-header class="solicitud-detail__card-title"><mt-icon name="shield_person" [size]="16" /> Aval</div>
+      @if (exp.avalista) {
+        <dl class="solicitud-detail__facts">
+          <div><dt>Nombre</dt><dd>{{ exp.avalista.nombres }} {{ exp.avalista.apellidoPaterno }} {{ exp.avalista.apellidoMaterno }}</dd></div>
+          <div><dt>Documento</dt><dd>{{ exp.avalista.tipoDocumento }} {{ exp.avalista.numeroDocumento }}</dd></div>
+          <div><dt>Relación</dt><dd>{{ exp.avalistaRelacion ?? '—' }}</dd></div>
+        </dl>
+      } @else {
+        <p class="solicitud-detail__empty">Sin aval registrado.</p>
+      }
+
+      @if (!cambiandoAval()) {
+        <div class="solicitud-detail__actions">
+          <mt-button variant="secondary" size="sm" (click)="toggleCambiarAval()">
+            <mt-icon name="swap_horiz" [size]="14" /> {{ exp.avalista ? 'Cambiar aval' : 'Agregar aval' }}
+          </mt-button>
+        </div>
+      } @else {
+        @if (errorAval()) {
+          <mt-alert variant="error" title="No se pudo guardar">{{ errorAval() }}</mt-alert>
+        }
+        <form [formGroup]="formAval" class="form-grid" (ngSubmit)="confirmarCambioAval()">
+          <mt-select class="span-4" label="Tipo de documento" formControlName="tipoDocumento" [options]="tiposDocumento" />
+          <mt-input class="span-8" label="Número de documento" formControlName="numeroDocumento" icon="badge" />
+          <mt-input class="span-4" label="Nombres" formControlName="nombres" />
+          <mt-input class="span-4" label="Apellido paterno" formControlName="apellidoPaterno" />
+          <mt-input class="span-4" label="Apellido materno" formControlName="apellidoMaterno" />
+          <mt-select class="span-12" label="Relación con el titular" formControlName="relacion" [options]="relaciones" />
+        </form>
+        <div class="solicitud-detail__actions">
+          <mt-button variant="ghost" size="sm" (click)="toggleCambiarAval()">Cancelar</mt-button>
+          <mt-button size="sm" [loading]="guardandoAval()" (click)="confirmarCambioAval()">Guardar nuevo aval</mt-button>
+        </div>
+      }
+    </mt-card>
+
+    <mt-card>
+      <div card-header class="solicitud-detail__card-title"><mt-icon name="upload_file" [size]="16" /> Documentos</div>
+      @if (loadingDocumentos()) {
+        <p class="solicitud-detail__empty">Cargando documentos…</p>
+      } @else {
+        <div class="solicitud-detail__documentos-grid">
+          @for (grupo of [
+            { titulo: 'Titular', lista: documentosTitular, rol: 'TITULAR' },
+            { titulo: 'Aval', lista: documentosAvalista, rol: 'AVALISTA' }
+          ]; track grupo.titulo) {
+            @if (grupo.lista.length > 0) {
+              <div class="documentos-columna">
+                <h4 class="documentos-subtitulo">{{ grupo.titulo }}</h4>
+                <ul class="documentos-list">
+                  @for (doc of grupo.lista; track doc.id) {
+                    <li class="documentos-list__item">
+                      <div class="documentos-list__info">
+                        <a [href]="doc.url" target="_blank" rel="noopener" class="documentos-list__link">
+                          <mt-icon name="visibility" [size]="14" /> {{ labelDocumento(doc.rol, doc.tipo) }}
+                        </a>
+                        <mt-badge [variant]="estadoDocumentoBadgeVariant[doc.estado]">{{ estadoDocumentoLabel[doc.estado] }}</mt-badge>
+                      </div>
+                      @if (doc.observaciones) {
+                        <p class="documentos-list__obs">{{ doc.observaciones }}</p>
+                      }
+                      @if (doc.estado === 'RECHAZADO' || doc.estado === 'OBSERVADO') {
+                        <div class="documentos-list__acciones">
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            [id]="'reemplazo-' + doc.id"
+                            (change)="onArchivoReemplazo(doc, $event)"
+                            hidden
+                          />
+                          <mt-button
+                            variant="secondary"
+                            size="sm"
+                            [loading]="reemplazandoDocumentoId() === doc.id"
+                            (click)="triggerReemplazoInput(doc.id)"
+                          >
+                            <mt-icon name="upload" [size]="14" /> Reemplazar archivo
+                          </mt-button>
+                        </div>
+                      }
+                    </li>
+                  }
+                </ul>
+              </div>
+            }
+          }
+        </div>
+        @if (documentos().length === 0) {
+          <p class="solicitud-detail__empty">Sin documentos registrados.</p>
+        }
+      }
+    </mt-card>
+
+    @if (exp.referencias.length > 0) {
+      <mt-card>
+        <div card-header class="solicitud-detail__card-title"><mt-icon name="contacts" [size]="16" /> Referencias</div>
+        <ul class="documentos-list">
+          @for (ref of exp.referencias; track ref.id) {
+            <li class="documentos-list__item">
+              <span>{{ ref.nombres }} {{ ref.apellidos }} · {{ ref.relacion ?? 'Sin relación' }} · {{ ref.telefono }}</span>
+            </li>
+          }
+        </ul>
+      </mt-card>
+    }
+  }
+}

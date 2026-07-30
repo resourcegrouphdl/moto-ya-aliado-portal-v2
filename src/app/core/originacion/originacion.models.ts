@@ -43,6 +43,18 @@ export const NACIONALIDAD_LABEL: Record<Nacionalidad, string> = {
   CUBA: 'Cuba',
   OTRO: 'Otro'
 };
+
+// Requerido por el texto legal del Pagaré (Anexo 3, "JUAN PEREZ, Soltero(a),
+// identificado con DNI..."), no se capturaba hasta ahora (2026-07-30).
+export type EstadoCivil = 'SOLTERO' | 'CASADO' | 'DIVORCIADO' | 'VIUDO' | 'CONVIVIENTE';
+
+export const ESTADO_CIVIL_LABEL: Record<EstadoCivil, string> = {
+  SOLTERO: 'Soltero(a)',
+  CASADO: 'Casado(a)',
+  DIVORCIADO: 'Divorciado(a)',
+  VIUDO: 'Viudo(a)',
+  CONVIVIENTE: 'Conviviente'
+};
 export type EstadoSolicitud =
   | 'BORRADOR'
   | 'INCOMPLETA'
@@ -68,6 +80,7 @@ export interface CrearClienteRequest {
   longitud?: number | null;
   fechaNacimiento?: string | null;
   nacionalidad?: Nacionalidad | null;
+  estadoCivil?: EstadoCivil | null;
 }
 
 export interface ClienteResponse {
@@ -89,6 +102,7 @@ export interface ClienteResponse {
   fechaNacimiento: string | null;
   edad: number | null;
   nacionalidad: Nacionalidad | null;
+  estadoCivil: EstadoCivil | null;
   creadoPor: string | null;
   creadoEn: string | null;
 }
@@ -103,6 +117,7 @@ export interface ActualizarDireccionRequest {
   longitud?: number | null;
   fechaNacimiento?: string | null;
   nacionalidad?: Nacionalidad | null;
+  estadoCivil?: EstadoCivil | null;
 }
 
 /** Respuesta de /partner/originacion/lookup/dni/{numero} y .../lookup/cee/{numero} — mismos 4 campos en ambos. */
@@ -221,6 +236,10 @@ export interface DatosVehiculo {
   numeroMotor?: string | null;
   numeroChasis?: string | null;
   precioVehiculo: number;
+  /** Inicial que el cliente dijo tener disponible — informativo, el analista decide el financiamiento real al iniciar evaluación. */
+  inicialIngresada?: number | null;
+  /** Cuotas que el cliente pidió — mismo criterio que inicialIngresada. */
+  numeroPeriodos?: number | null;
 }
 
 export interface VehiculoSolicitudResponse extends DatosVehiculo {
@@ -317,13 +336,32 @@ export interface DatosDocumentoIdentidadExtraidos {
   tipoDocumentoDetectado: TipoDocumentoIdentidad | null;
 }
 
+export type EstadoDocumentoSolicitud = 'PENDIENTE' | 'APROBADO' | 'OBSERVADO' | 'RECHAZADO';
+
 export interface DocumentoSolicitudResponse {
   id: string;
   rol: RolPersonaSolicitud;
   tipo: TipoDocumentoSolicitud;
   url: string;
   subidoEn: string;
+  estado: EstadoDocumentoSolicitud;
+  observaciones: string | null;
+  validadoEn: string | null;
 }
+
+export const ESTADO_DOCUMENTO_SOLICITUD_LABEL: Record<EstadoDocumentoSolicitud, string> = {
+  PENDIENTE: 'Pendiente de revisión',
+  APROBADO: 'Aprobado',
+  OBSERVADO: 'Observado',
+  RECHAZADO: 'Rechazado'
+};
+
+export const ESTADO_DOCUMENTO_SOLICITUD_BADGE_VARIANT: Record<EstadoDocumentoSolicitud, BadgeVariant> = {
+  PENDIENTE: 'neutral',
+  APROBADO: 'success',
+  OBSERVADO: 'warning',
+  RECHAZADO: 'error'
+};
 
 /** Slots de documentos por rol — SELFIE solo aplica a TITULAR (el aval no la requiere). */
 export const DOCUMENTOS_TITULAR: { tipo: TipoDocumentoSolicitud; label: string }[] = [

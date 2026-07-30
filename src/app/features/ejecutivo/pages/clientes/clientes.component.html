@@ -14,7 +14,7 @@
   <mt-card [padded]="false">
     <ul class="clientes-list">
       @for (c of clientes(); track c.id) {
-        <li class="clientes-list__item">
+        <li class="clientes-list__item" [routerLink]="['/ejecutivo/solicitud', c.id]">
           <div class="clientes-list__main">
             <strong>{{ c.titularNombres }} {{ c.titularApellidoPaterno }} {{ c.titularApellidoMaterno }}</strong>
             <span class="clientes-list__meta">{{ c.titularTipoDocumento }} {{ c.titularNumeroDocumento }} · {{ c.codigoSolicitud }}</span>

@@ -185,6 +185,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.form-hint {
+  margin: calc(var(--space-2) * -1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
 .step-actions__group {
   display: flex;
   gap: var(--space-3);

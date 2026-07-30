@@ -24,6 +24,17 @@ export interface ContratoResumen {
   creadoPor: string;
   creadoEn: string;
   vendedorNombre: string | null;
+  /** Vehículo tal como quedó registrado en la venta (BC-01) — para cotejar contra lo que se tipea al subir la factura. Null si no se pudo resolver. */
+  vehiculoReferencia: VehiculoReferencia | null;
+}
+
+export interface VehiculoReferencia {
+  marca: string;
+  modelo: string;
+  anio: number;
+  color: string | null;
+  numeroChasis: string | null;
+  precioVehiculo: number;
 }
 
 export interface DocumentoContrato {
@@ -38,6 +49,12 @@ export interface DocumentoContrato {
   validadoPor: string | null;
   validadoEn: string | null;
   notas: string | null;
+  /** Solo pobladas para FACTURA. */
+  numeroChasis: string | null;
+  color: string | null;
+  marca: string | null;
+  modelo: string | null;
+  anio: number | null;
 }
 
 export interface CuotaAmortizacion {

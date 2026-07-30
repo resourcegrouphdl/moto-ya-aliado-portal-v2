@@ -1,5 +1,6 @@
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ContratoApiService } from '../../../../core/contrato/contrato-api.service';
@@ -18,7 +19,6 @@ import { AlertComponent } from '../../../../shared/ui/alert/alert.component';
 import { BadgeComponent, BadgeVariant } from '../../../../shared/ui/badge/badge.component';
 import { ButtonComponent } from '../../../../shared/ui/button/button.component';
 import { CardComponent } from '../../../../shared/ui/card/card.component';
-import { DateInputComponent } from '../../../../shared/ui/date-input/date-input.component';
 import { IconComponent } from '../../../../shared/ui/icon/icon.component';
 import { InputComponent } from '../../../../shared/ui/input/input.component';
 import { SelectComponent, SelectOption } from '../../../../shared/ui/select/select.component';
@@ -76,7 +76,6 @@ const TIPO_DOCUMENTO_OPTIONS: SelectOption<TipoDocumentoContrato>[] = [
     IconComponent,
     AlertComponent,
     InputComponent,
-    DateInputComponent,
     SelectComponent,
     MtDatePipe,
     DecimalPipe
@@ -111,13 +110,29 @@ export class ContratoDetalleComponent {
 
   protected readonly form = this.fb.nonNullable.group({
     tipoDocumento: this.fb.nonNullable.control<TipoDocumentoContrato>('BOUCHER', Validators.required),
-    monto: this.fb.control<number | null>(null)
+    monto: this.fb.control<number | null>(null),
+    numeroChasis: [''],
+    color: [''],
+    marca: [''],
+    modelo: [''],
+    anio: this.fb.control<number | null>(null)
+  });
+
+  // toSignal(valueChanges), no computed() leyendo form.controls.X.value directo:
+  // un computed() sin ninguna lectura de signal real no vuelve a recalcular
+  // nunca (queda "congelado" en su primer valor) — mismo criterio que
+  // direccionTitularTexto/fechaNacimientoTitularTexto en solicitud.component.ts.
+  private readonly tipoDocumentoSeleccionado = toSignal(this.form.controls.tipoDocumento.valueChanges, {
+    initialValue: this.form.controls.tipoDocumento.value
   });
 
   protected readonly requiereMonto = computed(() => {
-    const tipo = this.form.controls.tipoDocumento.value;
+    const tipo = this.tipoDocumentoSeleccionado();
     return tipo === 'FACTURA' || tipo === 'BOUCHER';
   });
+
+  /** La factura, a diferencia del resto de documentos, también registra la identidad del vehículo — ver DatosDocumentoContrato (backend). */
+  protected readonly esFactura = computed(() => this.tipoDocumentoSeleccionado() === 'FACTURA');
 
   protected readonly pasos = PASOS_FORMALIZACION;
 
@@ -127,9 +142,6 @@ export class ContratoDetalleComponent {
     return idx === -1 ? 0 : idx;
   });
 
-  protected readonly generarForm = this.fb.nonNullable.group({
-    fechaFirma: this.fb.nonNullable.control('', Validators.required)
-  });
   protected readonly generando = signal(false);
   protected readonly errorGenerar = signal<string | null>(null);
 
@@ -186,21 +198,29 @@ export class ContratoDetalleComponent {
       this.error.set('Ingresa el monto antes de subir el documento.');
       return;
     }
+    const { tipoDocumento, monto, numeroChasis, color, marca, modelo, anio } = this.form.getRawValue();
+    if (tipoDocumento === 'FACTURA' && (!numeroChasis || !color || !marca || !modelo || !anio)) {
+      this.error.set('Completa chasis, color, marca, modelo y año antes de subir la factura.');
+      return;
+    }
 
     this.subiendo.set(true);
     this.error.set(null);
-    const { tipoDocumento, monto } = this.form.getRawValue();
 
     this.api.solicitarSubida(this.contratoId, archivo.name, archivo.type).subscribe({
       next: (solicitud) => {
         this.api.subirArchivo(solicitud, archivo).subscribe({
           next: () => {
-            this.api.registrarDocumento(this.contratoId, { tipoDocumento, url: solicitud.publicUrl, monto }).subscribe({
+            const datos =
+              tipoDocumento === 'FACTURA'
+                ? { tipoDocumento, url: solicitud.publicUrl, monto, numeroChasis, color, marca, modelo, anio }
+                : { tipoDocumento, url: solicitud.publicUrl, monto };
+            this.api.registrarDocumento(this.contratoId, datos).subscribe({
               next: (documento) => {
                 this.documentos.update((lista) => [...lista, documento]);
                 this.subiendo.set(false);
                 this.archivoSeleccionado.set(null);
-                this.form.reset({ tipoDocumento: 'BOUCHER', monto: null });
+                this.form.reset({ tipoDocumento: 'BOUCHER', monto: null, numeroChasis: '', color: '', marca: '', modelo: '', anio: null });
               },
               error: () => {
                 this.subiendo.set(false);
@@ -222,16 +242,10 @@ export class ContratoDetalleComponent {
   }
 
   generarDocumento(): void {
-    if (this.generarForm.invalid) {
-      this.generarForm.markAllAsTouched();
-      return;
-    }
-
     this.generando.set(true);
     this.errorGenerar.set(null);
-    const { fechaFirma } = this.generarForm.getRawValue();
 
-    this.api.generarDocumento(this.contratoId, fechaFirma).subscribe({
+    this.api.generarDocumento(this.contratoId).subscribe({
       next: () => {
         this.generando.set(false);
         // La URL queda persistida en el contrato — recargamos para mostrar el link de descarga.

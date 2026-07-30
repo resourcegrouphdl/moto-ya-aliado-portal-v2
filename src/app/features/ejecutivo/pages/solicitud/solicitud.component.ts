@@ -24,6 +24,8 @@ import {
   DOCUMENTOS_AVALISTA,
   DOCUMENTOS_TITULAR,
   DocumentoSolicitudResponse,
+  ESTADO_CIVIL_LABEL,
+  EstadoCivil,
   HistorialSolicitudCliente,
   NACIONALIDAD_LABEL,
   Nacionalidad,
@@ -61,6 +63,11 @@ const TIPOS_DOCUMENTO: SelectOption<TipoDocumentoIdentidad>[] = [
 
 const NACIONALIDAD_OPTIONS: SelectOption<Nacionalidad>[] = Object.entries(NACIONALIDAD_LABEL).map(([value, label]) => ({
   value: value as Nacionalidad,
+  label
+}));
+
+const ESTADO_CIVIL_OPTIONS: SelectOption<EstadoCivil>[] = Object.entries(ESTADO_CIVIL_LABEL).map(([value, label]) => ({
+  value: value as EstadoCivil,
   label
 }));
 
@@ -150,6 +157,7 @@ export class SolicitudComponent {
   protected readonly tiposDocumento = TIPOS_DOCUMENTO;
   protected readonly relaciones = RELACIONES;
   protected readonly nacionalidades = NACIONALIDAD_OPTIONS;
+  protected readonly estadosCiviles = ESTADO_CIVIL_OPTIONS;
   protected readonly slotsDocumentosTitular = DOCUMENTOS_TITULAR;
   protected readonly slotsDocumentosAvalista = DOCUMENTOS_AVALISTA;
 
@@ -205,7 +213,8 @@ export class SolicitudComponent {
     latitud: [null as number | null],
     longitud: [null as number | null],
     fechaNacimiento: [''],
-    nacionalidad: ['PERU' as Nacionalidad]
+    nacionalidad: ['PERU' as Nacionalidad],
+    estadoCivil: [null as EstadoCivil | null]
   });
 
   protected readonly formAvalista = this.fb.nonNullable.group({
@@ -223,6 +232,7 @@ export class SolicitudComponent {
     longitud: [null as number | null],
     fechaNacimiento: [''],
     nacionalidad: ['PERU' as Nacionalidad],
+    estadoCivil: [null as EstadoCivil | null],
     relacion: ['Padre/Madre', Validators.required]
   });
 
@@ -248,6 +258,10 @@ export class SolicitudComponent {
     return nacionalidad ? NACIONALIDAD_LABEL[nacionalidad] : '—';
   }
 
+  protected estadoCivilLabel(estadoCivil: EstadoCivil | null | undefined): string {
+    return estadoCivil ? ESTADO_CIVIL_LABEL[estadoCivil] : '—';
+  }
+
   private edadDe(fechaIso: string): number | null {
     if (!fechaIso) return null;
     const nacimiento = new Date(fechaIso);
@@ -267,7 +281,11 @@ export class SolicitudComponent {
     anio: [new Date().getFullYear(), [Validators.required, Validators.min(1990)]],
     color: [''],
     placa: [''],
-    precioVehiculo: [0, [Validators.required, Validators.min(1)]]
+    numeroMotor: [''],
+    numeroChasis: [''],
+    precioVehiculo: [0, [Validators.required, Validators.min(1)]],
+    inicialIngresada: this.fb.control<number | null>(null),
+    numeroPeriodos: this.fb.control<number | null>(null)
   });
 
   protected readonly formReferencia = this.fb.nonNullable.group({
@@ -277,8 +295,9 @@ export class SolicitudComponent {
     relacion: ['Amigo(a)', Validators.required]
   });
 
+  /** Mínimo 2, máximo 3 — Riesgo (BC-02) necesita poder verificar al menos 2 antes de aprobar, ver expediente-detail (admin-v2). */
   protected readonly puedeAgregarReferencia = computed(() => this.referencias().length < 3);
-  protected readonly puedeContinuarReferencias = computed(() => this.referencias().length >= 1);
+  protected readonly puedeContinuarReferencias = computed(() => this.referencias().length >= 2);
 
   constructor() {
     this.configurarLookupTitular();
@@ -415,6 +434,38 @@ export class SolicitudComponent {
     this.guardando.set(true);
     this.error.set(null);
 
+    const titularExistente = this.titular();
+    const solicitudExistente = this.solicitud();
+
+    if (titularExistente && solicitudExistente) {
+      // El titular y la solicitud ya se crearon en esta misma corrida del
+      // wizard (el ejecutivo retrocedió a este paso y volvió a tocar
+      // "Continuar") — crearSolicitud() ya no se puede volver a llamar (el
+      // backend rechaza una 2da solicitud para el mismo titular), así que
+      // solo se actualiza la dirección/GPS y se avanza, sin recrear nada.
+      this.api
+        .actualizarDireccionCliente(titularExistente.id, {
+          departamento: datos.departamento,
+          provincia: datos.provincia,
+          distrito: datos.distrito,
+          direccion: datos.direccion,
+          latitud: datos.latitud,
+          longitud: datos.longitud,
+          fechaNacimiento: datos.fechaNacimiento || null,
+          nacionalidad: datos.nacionalidad,
+          estadoCivil: datos.estadoCivil
+        })
+        .subscribe({
+          next: (cliente) => {
+            this.titular.set(cliente);
+            this.guardando.set(false);
+            this.paso.set('documentos-titular');
+          },
+          error: (err: HttpErrorResponse) => this.manejarError(err)
+        });
+      return;
+    }
+
     this.api
       .buscarClientePorDocumento(datos.tipoDocumento, datos.numeroDocumento)
       .pipe(
@@ -433,12 +484,18 @@ export class SolicitudComponent {
             latitud: datos.latitud,
             longitud: datos.longitud,
             fechaNacimiento: datos.fechaNacimiento || null,
-            nacionalidad: datos.nacionalidad
+            nacionalidad: datos.nacionalidad,
+            estadoCivil: datos.estadoCivil
           })
         ),
         switchMap((cliente) =>
+          // documentosMinimosCompletos siempre false acá: la solicitud se crea
+          // ANTES de que exista cualquier documento (el paso documentos-titular
+          // es el siguiente). Nace INCOMPLETA y pasa a COMPLETA recién en
+          // evaluarDocumentosMinimosCompletos(), tras subir los documentos —
+          // ver MarcarSolicitudCompletaUseCase en motoya-api.
           this.api
-            .crearSolicitud({ canal: 'TIENDA_ALIADA', titularId: cliente.id, documentosMinimosCompletos: true })
+            .crearSolicitud({ canal: 'TIENDA_ALIADA', titularId: cliente.id, documentosMinimosCompletos: false })
             .pipe(switchMap((solicitud) => of({ cliente, solicitud })))
         )
       )
@@ -499,6 +556,8 @@ export class SolicitudComponent {
     this.guardando.set(true);
     this.error.set(null);
 
+    const avalistaExistente = this.avalista();
+
     this.api
       .buscarClientePorDocumento(datos.tipoDocumento, datos.numeroDocumento)
       .pipe(catchError((err: HttpErrorResponse) => (err.status === 404 ? this.api.crearCliente(datos) : throwError(() => err))))
@@ -512,13 +571,18 @@ export class SolicitudComponent {
             latitud: datos.latitud,
             longitud: datos.longitud,
             fechaNacimiento: datos.fechaNacimiento || null,
-            nacionalidad: datos.nacionalidad
+            nacionalidad: datos.nacionalidad,
+            estadoCivil: datos.estadoCivil
           })
         ),
         switchMap((cliente) =>
-          this.api
-            .agregarAvalista(solicitud.id, { clienteId: cliente.id, relacion: datos.relacion })
-            .pipe(switchMap(() => of(cliente)))
+          // Si ya había un aval guardado (se retrocedió a este paso), se
+          // reemplaza en vez de agregar() — agregar() rechaza un 2do aval
+          // para la misma solicitud, dejando el wizard sin forma de avanzar.
+          (avalistaExistente
+            ? this.api.reemplazarAvalista(solicitud.id, { clienteId: cliente.id, relacion: datos.relacion })
+            : this.api.agregarAvalista(solicitud.id, { clienteId: cliente.id, relacion: datos.relacion })
+          ).pipe(switchMap(() => of(cliente)))
         )
       )
       .subscribe({
@@ -550,7 +614,35 @@ export class SolicitudComponent {
   }
 
   continuarDocumentosAvalista(): void {
+    this.evaluarDocumentosMinimosCompletos();
     this.paso.set('vehiculo');
+  }
+
+  /**
+   * Los "documentos mínimos" (§9.2 del doc de arquitectura) son el DNI
+   * (frente+reverso) de titular y aval — el resto de slots (licencia,
+   * selfie, certificado laboral, recibo, fachada, otros) son complementarios,
+   * no bloquean. Si ambos DNI ya están, la solicitud pasa de INCOMPLETA a
+   * COMPLETA en el backend. Best-effort y no bloqueante: si falla, la
+   * solicitud simplemente se queda INCOMPLETA — sigue siendo más correcto
+   * que el `true` fijo que se mandaba antes de tener un solo documento.
+   */
+  private evaluarDocumentosMinimosCompletos(): void {
+    const solicitud = this.solicitud();
+    if (!solicitud) return;
+    if (!this.tieneDniCompleto(this.documentosTitular()) || !this.tieneDniCompleto(this.documentosAvalista())) {
+      return;
+    }
+    this.api.marcarSolicitudCompleta(solicitud.id).subscribe({
+      next: (actualizada) => this.solicitud.set(actualizada),
+      error: () => {
+        /* No bloquea el wizard — el evaluador puede completarla luego desde el panel interno. */
+      }
+    });
+  }
+
+  private tieneDniCompleto(documentos: DocumentoSolicitudResponse[]): boolean {
+    return documentos.some((d) => d.tipo === 'DNI_FRENTE') && documentos.some((d) => d.tipo === 'DNI_REVERSO');
   }
 
   /** No bloquea el avance del wizard — si la consulta falla, simplemente no se muestra el aviso. */
@@ -574,7 +666,13 @@ export class SolicitudComponent {
     this.guardando.set(true);
     this.error.set(null);
 
-    this.api.agregarVehiculo(solicitud.id, this.formVehiculo.getRawValue()).subscribe({
+    const datos = this.formVehiculo.getRawValue();
+    // Si ya había un vehículo guardado (se retrocedió a este paso), se
+    // actualiza en vez de agregar() — agregar() rechaza un 2do vehículo para
+    // la misma solicitud, dejando el wizard sin forma de avanzar.
+    const request$ = this.vehiculo() ? this.api.actualizarVehiculo(solicitud.id, datos) : this.api.agregarVehiculo(solicitud.id, datos);
+
+    request$.subscribe({
       next: (vehiculo) => {
         this.vehiculo.set(vehiculo);
         this.guardando.set(false);
