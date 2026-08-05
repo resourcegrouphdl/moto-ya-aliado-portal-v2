@@ -19,7 +19,7 @@
 
 .clientes-list__item {
   display: grid;
-  grid-template-columns: 2fr 1.4fr auto;
+  grid-template-columns: 2fr 1.4fr auto auto;
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4) var(--space-6);
@@ -73,4 +73,23 @@
   @media (max-width: 720px) {
     text-align: left;
   }
+}
+
+.clientes-list__accion {
+  display: flex;
+  justify-content: flex-end;
+
+  @media (max-width: 720px) {
+    justify-content: flex-start;
+  }
+}
+
+.clientes-list__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-primary);
+  white-space: nowrap;
 }

@@ -69,6 +69,13 @@ export const routes: Routes = [
           import('./features/ejecutivo/pages/solicitud/solicitud.component').then((m) => m.SolicitudComponent)
       },
       {
+        path: 'ejecutivo/solicitud/:id/continuar',
+        canActivate: [rolGuard],
+        data: { allowedRoles: ['EJECUTIVO_ALIADO'] },
+        loadComponent: () =>
+          import('./features/ejecutivo/pages/solicitud/solicitud.component').then((m) => m.SolicitudComponent)
+      },
+      {
         path: 'ejecutivo/solicitud/:id',
         canActivate: [rolGuard],
         data: { allowedRoles: ['EJECUTIVO_ALIADO'] },

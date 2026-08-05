@@ -14,7 +14,7 @@
   <mt-card [padded]="false">
     <ul class="clientes-list">
       @for (c of clientes(); track c.id) {
-        <li class="clientes-list__item" [routerLink]="['/ejecutivo/solicitud', c.id]">
+        <li class="clientes-list__item" [routerLink]="linkDe(c)">
           <div class="clientes-list__main">
             <strong>{{ c.titularNombres }} {{ c.titularApellidoPaterno }} {{ c.titularApellidoMaterno }}</strong>
             <span class="clientes-list__meta">{{ c.titularTipoDocumento }} {{ c.titularNumeroDocumento }} · {{ c.codigoSolicitud }}</span>
@@ -40,6 +40,15 @@
               <span class="clientes-list__meta clientes-list__motivo">{{ estadoMostrado(c).motivo }}</span>
             }
           </div>
+
+          @if (esRetomable(c)) {
+            <div class="clientes-list__accion">
+              <span class="clientes-list__cta">
+                Continuar solicitud
+                <mt-icon name="arrow_forward" [size]="16" />
+              </span>
+            </div>
+          }
         </li>
       }
     </ul>

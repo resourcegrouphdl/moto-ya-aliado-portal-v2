@@ -1,8 +1,17 @@
 <div class="wizard">
   <header class="wizard__intro">
-    <h1>Nueva solicitud de crédito</h1>
-    <p>Registra al titular, su aval, la moto y las referencias. Cada paso se guarda al instante.</p>
+    @if (modoContinuar()) {
+      <h1>Completar solicitud</h1>
+      <p>Retomamos justo donde quedó — revisa y completa lo que falte.</p>
+    } @else {
+      <h1>Nueva solicitud de crédito</h1>
+      <p>Registra al titular, su aval, la moto y las referencias. Cada paso se guarda al instante.</p>
+    }
   </header>
+
+  @if (cargandoExpediente()) {
+    <p class="wizard__loading">Cargando la solicitud…</p>
+  } @else {
 
   @if (paso() !== 'completado') {
     <ol class="stepper" aria-label="Progreso de la solicitud">
@@ -424,5 +433,7 @@
         Registrar otra solicitud
       </button>
     </div>
+  }
+
   }
 </div>

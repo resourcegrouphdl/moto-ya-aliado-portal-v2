@@ -1,8 +1,9 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { catchError, debounceTime, distinctUntilChanged, filter, map, of, switchMap, tap, throwError } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, filter, forkJoin, map, of, switchMap, tap, throwError } from 'rxjs';
 
 import { AlertComponent } from '../../../../shared/ui/alert/alert.component';
 import { BadgeComponent } from '../../../../shared/ui/badge/badge.component';
@@ -26,6 +27,7 @@ import {
   DocumentoSolicitudResponse,
   ESTADO_CIVIL_LABEL,
   EstadoCivil,
+  ExpedienteSolicitudResponse,
   HistorialSolicitudCliente,
   NACIONALIDAD_LABEL,
   Nacionalidad,
@@ -127,6 +129,17 @@ const RELACIONES: SelectOption<string>[] = [
  * formulario sigue 100% editable. La foto ya subida se registra sola como
  * DNI_FRENTE en cuanto se crea la solicitud (ver registrarFotoIdentidad*Titular/
  * Avalista), así el vendedor no la vuelve a subir en el paso de documentos.
+ *
+ * Modo "continuar" (2026-08-04): si la ruta trae un :id (ver
+ * ejecutivo/solicitud/:id/continuar), este mismo wizard precarga el
+ * expediente existente en vez de arrancar en 'titular' — antes la única
+ * pantalla para retomar una solicitud INCOMPLETA era SolicitudDetailComponent,
+ * que no tiene formularios para agregar lo que falta (vehículo/referencias/
+ * documentos si el vendedor abandonó antes de llegar ahí), dejando la
+ * solicitud sin forma real de completarse. cargarExpediente() reutiliza la
+ * misma rama "ya existe, actualizar en vez de crear" que cada continuar*()
+ * ya tenía para cuando el vendedor retrocedía un paso dentro de la misma
+ * corrida — no fue necesario tocar esos métodos.
  */
 @Component({
   selector: 'mt-solicitud-page',
@@ -152,6 +165,7 @@ const RELACIONES: SelectOption<string>[] = [
 export class SolicitudComponent {
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(OriginacionApiService);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly pasos = PASOS;
   protected readonly tiposDocumento = TIPOS_DOCUMENTO;
@@ -181,6 +195,12 @@ export class SolicitudComponent {
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly mostrarFormReferencia = signal(true);
+
+  // Modo "continuar" (retomar una solicitud INCOMPLETA existente) — ver
+  // docblock de la clase. cargandoExpediente cubre solo la precarga inicial,
+  // nunca el guardando normal de cada paso.
+  protected readonly modoContinuar = signal(false);
+  protected readonly cargandoExpediente = signal(false);
 
   // Feedback del lookup de DNI/CEE (json.pe) — antes fallaba en silencio
   // (catchError descartaba cualquier error) y no había ninguna señal de
@@ -302,6 +322,115 @@ export class SolicitudComponent {
   constructor() {
     this.configurarLookupTitular();
     this.configurarLookupAvalista();
+
+    const idExistente = this.route.snapshot.paramMap.get('id');
+    if (idExistente) {
+      this.modoContinuar.set(true);
+      this.cargarExpediente(idExistente);
+    }
+  }
+
+  /** Precarga titular/aval/vehículo/referencias/documentos de una solicitud INCOMPLETA existente y posiciona el wizard en el primer paso que falta. */
+  private cargarExpediente(solicitudId: string): void {
+    this.cargandoExpediente.set(true);
+    this.error.set(null);
+
+    forkJoin({
+      expediente: this.api.obtenerExpediente(solicitudId),
+      documentos: this.api.listarDocumentos(solicitudId)
+    }).subscribe({
+      next: ({ expediente, documentos }) => {
+        this.aplicarExpediente(expediente, documentos);
+        this.cargandoExpediente.set(false);
+      },
+      error: () => {
+        this.cargandoExpediente.set(false);
+        this.error.set('No se pudo cargar la solicitud. Intenta de nuevo.');
+      }
+    });
+  }
+
+  private aplicarExpediente(expediente: ExpedienteSolicitudResponse, documentos: DocumentoSolicitudResponse[]): void {
+    const { solicitud, titular, avalista, avalistaRelacion, vehiculo, referencias } = expediente;
+
+    this.solicitud.set(solicitud);
+    this.titular.set(titular);
+    this.formTitular.patchValue({
+      tipoDocumento: titular.tipoDocumento,
+      numeroDocumento: titular.numeroDocumento,
+      nombres: titular.nombres,
+      apellidoPaterno: titular.apellidoPaterno,
+      apellidoMaterno: titular.apellidoMaterno,
+      telefono: titular.telefono ?? '',
+      email: titular.email ?? '',
+      departamento: titular.departamento ?? '',
+      provincia: titular.provincia ?? '',
+      distrito: titular.distrito ?? '',
+      direccion: titular.direccion ?? '',
+      latitud: titular.latitud,
+      longitud: titular.longitud,
+      fechaNacimiento: titular.fechaNacimiento ?? '',
+      nacionalidad: titular.nacionalidad ?? 'PERU',
+      estadoCivil: titular.estadoCivil
+    });
+
+    this.documentosTitular.set(documentos.filter((d) => d.rol === 'TITULAR'));
+    this.documentosAvalista.set(documentos.filter((d) => d.rol === 'AVALISTA'));
+    this.cargarHistorialTitular(titular.tipoDocumento, titular.numeroDocumento);
+
+    if (avalista) {
+      this.avalista.set({ cliente: avalista, relacion: avalistaRelacion ?? '' });
+      this.formAvalista.patchValue({
+        tipoDocumento: avalista.tipoDocumento,
+        numeroDocumento: avalista.numeroDocumento,
+        nombres: avalista.nombres,
+        apellidoPaterno: avalista.apellidoPaterno,
+        apellidoMaterno: avalista.apellidoMaterno,
+        telefono: avalista.telefono ?? '',
+        departamento: avalista.departamento ?? '',
+        provincia: avalista.provincia ?? '',
+        distrito: avalista.distrito ?? '',
+        direccion: avalista.direccion ?? '',
+        latitud: avalista.latitud,
+        longitud: avalista.longitud,
+        fechaNacimiento: avalista.fechaNacimiento ?? '',
+        nacionalidad: avalista.nacionalidad ?? 'PERU',
+        estadoCivil: avalista.estadoCivil,
+        relacion: avalistaRelacion ?? 'Padre/Madre'
+      });
+      this.verificarRelacionCircularAvalista(avalista.id);
+    }
+
+    if (vehiculo) {
+      this.vehiculo.set(vehiculo);
+      this.formVehiculo.patchValue({
+        marca: vehiculo.marca,
+        modelo: vehiculo.modelo,
+        anio: vehiculo.anio,
+        color: vehiculo.color ?? '',
+        placa: vehiculo.placa ?? '',
+        numeroMotor: vehiculo.numeroMotor ?? '',
+        numeroChasis: vehiculo.numeroChasis ?? '',
+        precioVehiculo: vehiculo.precioVehiculo,
+        inicialIngresada: vehiculo.inicialIngresada ?? null,
+        numeroPeriodos: vehiculo.numeroPeriodos ?? null
+      });
+    }
+
+    this.referencias.set(referencias);
+    this.mostrarFormReferencia.set(referencias.length < 3);
+
+    this.paso.set(this.primerPasoIncompleto(avalista !== null, vehiculo !== null, referencias.length));
+  }
+
+  private primerPasoIncompleto(tieneAvalista: boolean, tieneVehiculo: boolean, cantidadReferencias: number): Paso {
+    // Documentos-titular/documentos-avalista nunca bloquean el avance (ver
+    // continuarDocumentos*() más abajo) — mismo criterio acá, no se
+    // consideran para decidir dónde retomar.
+    if (!tieneAvalista) return 'avalista';
+    if (!tieneVehiculo) return 'vehiculo';
+    if (cantidadReferencias < 2) return 'referencias';
+    return 'revision';
   }
 
   /**
@@ -716,6 +845,7 @@ export class SolicitudComponent {
   }
 
   nuevaSolicitud(): void {
+    this.modoContinuar.set(false);
     this.titular.set(null);
     this.solicitud.set(null);
     this.avalista.set(null);

@@ -7,6 +7,7 @@ import { AlertComponent } from '../../../../shared/ui/alert/alert.component';
 import { BadgeComponent, BadgeVariant } from '../../../../shared/ui/badge/badge.component';
 import { CardComponent } from '../../../../shared/ui/card/card.component';
 import { EmptyStateComponent } from '../../../../shared/ui/empty-state/empty-state.component';
+import { IconComponent } from '../../../../shared/ui/icon/icon.component';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header.component';
 
 const ESTADO_LABEL: Record<EstadoSolicitud, string> = {
@@ -40,7 +41,7 @@ const ESTADO_VARIANT: Record<EstadoSolicitud, BadgeVariant> = {
 @Component({
   selector: 'mt-clientes-page',
   standalone: true,
-  imports: [MtDatePipe, RouterLink, AlertComponent, BadgeComponent, CardComponent, EmptyStateComponent, PageHeaderComponent],
+  imports: [MtDatePipe, RouterLink, AlertComponent, BadgeComponent, CardComponent, EmptyStateComponent, IconComponent, PageHeaderComponent],
   templateUrl: './clientes.component.html',
   styleUrl: './clientes.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -61,6 +62,15 @@ export class ClientesComponent {
 
   protected estadoMostrado(c: SolicitudResumen) {
     return estadoMostradoDe(c, ESTADO_LABEL, ESTADO_VARIANT);
+  }
+
+  /** BORRADOR/INCOMPLETA todavía no tienen todo lo mínimo del wizard (aval/moto/referencias) — retoman el wizard, no la pantalla de solo revisión. */
+  protected esRetomable(c: SolicitudResumen): boolean {
+    return c.estado === 'BORRADOR' || c.estado === 'INCOMPLETA';
+  }
+
+  protected linkDe(c: SolicitudResumen): string[] {
+    return this.esRetomable(c) ? ['/ejecutivo/solicitud', c.id, 'continuar'] : ['/ejecutivo/solicitud', c.id];
   }
 
   private cargar(): void {
