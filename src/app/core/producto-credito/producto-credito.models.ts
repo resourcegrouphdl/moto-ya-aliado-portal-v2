@@ -24,6 +24,8 @@ export interface CotizacionCreditoResponse {
   precioVehiculo: number;
   inicialMinima: number;
   inicialAplicada: number;
+  /** true cuando la inicial mínima/ingresada no alcanzaba para que el monto a financiar quedara dentro del máximo del producto, y se subió automáticamente. */
+  inicialAjustadaAutomaticamente: boolean;
   capitalBase: number;
   montoSoatAplicado: number;
   comisionMonto: number;
@@ -39,4 +41,18 @@ export interface CotizacionCreditoResponse {
   totalIntereses: number;
   totalAPagar: number;
   cuotas: CuotaAmortizacion[];
+}
+
+/** Límites/parámetros informativos del producto vigente — de solo lectura, para mostrarle al vendedor las reglas ANTES o junto con el resultado, sin duplicarlas a mano en el frontend. */
+export interface ProductoCreditoInfo {
+  codigoProducto: string;
+  porcentajeInicialMinima: number;
+  montoMinFinanciar: number;
+  montoMaxFinanciar: number;
+  precioMaxVehiculo: number | null;
+  montoSoat: number;
+  gastosAdministrativos: number;
+  plazoMinPeriodos: number;
+  plazoMaxPeriodos: number;
+  teaDefault: number;
 }

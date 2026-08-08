@@ -8,21 +8,43 @@
   <div card-header class="calculadora-header">
     <h2>Datos del crédito</h2>
     <p>La inicial mínima y el rango de semanas ya están fijados por el producto vigente.</p>
+
+    @if (productoInfo(); as info) {
+      <dl class="reglas-producto">
+        <div class="reglas-producto__item"><dt>Inicial mínima</dt><dd>{{ info.porcentajeInicialMinima * 100 | number: '1.0-0' }}%</dd></div>
+        <div class="reglas-producto__item">
+          <dt>Financia entre</dt>
+          <dd>S/ {{ info.montoMinFinanciar | number: '1.0-0' }} y S/ {{ info.montoMaxFinanciar | number: '1.0-0' }}</dd>
+        </div>
+        @if (info.precioMaxVehiculo) {
+          <div class="reglas-producto__item"><dt>Precio máx. de moto</dt><dd>S/ {{ info.precioMaxVehiculo | number: '1.0-0' }}</dd></div>
+        }
+        <div class="reglas-producto__item"><dt>Plazo</dt><dd>{{ info.plazoMinPeriodos }}–{{ info.plazoMaxPeriodos }} semanas</dd></div>
+      </dl>
+    } @else if (cargandoProductoInfo()) {
+      <p class="text-muted reglas-producto__loading">Cargando reglas del producto…</p>
+    }
   </div>
 
   <form [formGroup]="form" class="form-grid" (ngSubmit)="cotizar()">
-    <mt-input class="span-6" label="Precio de la moto (S/)" formControlName="precioVehiculo" type="number" icon="two_wheeler" />
+    <mt-input class="span-6" label="Precio de la moto (S/)" formControlName="precioVehiculo" type="number" icon="two_wheeler" [hint]="hintPrecio()" />
     <mt-input
       class="span-6"
       label="Inicial (opcional, S/)"
       formControlName="inicialIngresada"
       type="number"
       icon="payments"
-      hint="Vacío o 0 usa la inicial mínima del producto (20%)"
+      hint="Vacío o 0 usa la inicial mínima del producto — si ingresas menos que la mínima, el sistema la sube sola al cotizar."
     />
     <mt-select class="span-6" label="Plazo" formControlName="numeroPeriodos" [options]="semanasOptions" />
     <mt-select class="span-6" label="SOAT" formControlName="incluirSoat" [options]="soatOptions" />
   </form>
+
+  @if (precioExcedeMaximo()) {
+    <mt-alert variant="warning" title="Precio fuera de rango">
+      Este producto no financia motos de más de S/ {{ productoInfo()!.precioMaxVehiculo | number: '1.0-0' }}.
+    </mt-alert>
+  }
 
   <div card-footer class="calculadora-footer">
     <mt-button (click)="cotizar()" [loading]="cotizando()">Cotizar</mt-button>
@@ -36,8 +58,25 @@
       <p>Producto {{ r.codigoProducto }}</p>
     </div>
 
+    @if (r.inicialAjustadaAutomaticamente) {
+      <mt-alert variant="info" title="La inicial se ajustó automáticamente">
+        Con la inicial mínima (S/ {{ r.inicialMinima | number: '1.2-2' }}) el monto a financiar superaba el máximo que permite este
+        producto{{ productoInfo() ? ' (S/ ' + (productoInfo()!.montoMaxFinanciar | number: '1.0-0') + ')' : '' }}. Se subió la inicial a
+        S/ {{ r.inicialAplicada | number: '1.2-2' }} para que el crédito quede dentro del tope permitido — el cliente debe traer ese monto,
+        no el 20% simple del precio de la moto.
+      </mt-alert>
+    }
+
     <dl class="resumen-grid">
-      <div class="resumen-item"><dt>Inicial aplicada</dt><dd>S/ {{ r.inicialAplicada | number: '1.2-2' }}</dd></div>
+      <div class="resumen-item">
+        <dt>
+          Inicial aplicada
+          @if (r.inicialAjustadaAutomaticamente) {
+            <mt-badge variant="info">Ajustada</mt-badge>
+          }
+        </dt>
+        <dd>S/ {{ r.inicialAplicada | number: '1.2-2' }}</dd>
+      </div>
       <div class="resumen-item"><dt>Capital base</dt><dd>S/ {{ r.capitalBase | number: '1.2-2' }}</dd></div>
       <div class="resumen-item"><dt>SOAT aplicado</dt><dd>S/ {{ r.montoSoatAplicado | number: '1.2-2' }}</dd></div>
       <div class="resumen-item"><dt>Comisión ({{ r.comisionFinanciada ? 'financiada' : 'al desembolso' }})</dt><dd>S/ {{ r.comisionMonto | number: '1.2-2' }}</dd></div>

@@ -1,8 +1,8 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { CotizacionCreditoResponse, DatosCotizacionRequest } from './producto-credito.models';
+import { CotizacionCreditoResponse, DatosCotizacionRequest, ProductoCreditoInfo } from './producto-credito.models';
 
 /**
  * Único producto crediticio activo hoy (BC-07) — se manda explícito en vez de
@@ -17,8 +17,14 @@ export const CODIGO_PRODUCTO_CREDITO_DEFAULT = 'CREDITO-MOTO-2026';
 export class ProductoCreditoApiService {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.gatewayBaseUrl}/partner/producto/cotizacion`;
+  private readonly baseInfo = `${environment.gatewayBaseUrl}/partner/producto/vigente`;
 
   cotizar(datos: DatosCotizacionRequest): Observable<CotizacionCreditoResponse> {
     return this.http.post<CotizacionCreditoResponse>(this.base, datos);
+  }
+
+  /** Solo lectura — límites del producto vigente, para mostrarlos como guía antes de cotizar. */
+  obtenerVigente(codigo: string): Observable<ProductoCreditoInfo> {
+    return this.http.get<ProductoCreditoInfo>(this.baseInfo, { params: new HttpParams().set('codigo', codigo) });
   }
 }
