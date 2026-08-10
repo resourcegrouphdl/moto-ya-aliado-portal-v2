@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -11,6 +11,7 @@ import {
   ESTADO_DOCUMENTO_LABEL,
   ESTADO_FORMALIZACION_LABEL,
   EstadoFormalizacion,
+  SolicitudSubidaDocumento,
   TIPO_DOCUMENTO_LABEL,
   TipoDocumentoContrato
 } from '../../../../core/contrato/contrato.models';
@@ -115,8 +116,21 @@ export class ContratoDetalleComponent {
     color: [''],
     marca: [''],
     modelo: [''],
-    anio: this.fb.control<number | null>(null)
+    anio: this.fb.control<number | null>(null),
+    numeroMotor: ['']
   });
+
+  /**
+   * Flujo especial para FACTURA (2026-08-09): se sube AL SELECCIONAR el
+   * archivo (no al tocar "Subir documento") para poder pedir OCR (Document
+   * AI) y prellenar marca/modelo/año/color/n° de motor/n° de chasis/monto
+   * antes de que el ejecutivo confirme el registro — mismo patrón que
+   * mt-documento-identidad-upload. `facturaSubida` guarda el resultado de esa
+   * subida (con el `gcsPath`/`publicUrl`) para el registro final.
+   */
+  protected readonly facturaSubida = signal<SolicitudSubidaDocumento | null>(null);
+  protected readonly extrayendoFactura = signal(false);
+  protected readonly avisoCalidadFactura = signal<string | null>(null);
 
   // toSignal(valueChanges), no computed() leyendo form.controls.X.value directo:
   // un computed() sin ninguna lectura de signal real no vuelve a recalcular
@@ -148,6 +162,15 @@ export class ContratoDetalleComponent {
   constructor() {
     this.cargar();
     this.cargarCronograma();
+    // Cambiar de tipo de documento lejos de FACTURA deja atrás una subida/OCR
+    // a medias que ya no aplica — evita que un "Subir documento" posterior
+    // para otro tipo reutilice por error una factura ya subida.
+    effect(() => {
+      if (this.tipoDocumentoSeleccionado() !== 'FACTURA') {
+        this.facturaSubida.set(null);
+        this.avisoCalidadFactura.set(null);
+      }
+    });
   }
 
   private cargar(): void {
@@ -188,46 +211,94 @@ export class ContratoDetalleComponent {
 
   onArchivoSeleccionado(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.archivoSeleccionado.set(input.files?.[0] ?? null);
+    const archivo = input.files?.[0] ?? null;
+    input.value = '';
+    if (this.esFactura()) {
+      // La factura se sube de inmediato (no al tocar "Subir documento") para poder pedir OCR y prellenar el formulario.
+      if (archivo) this.procesarFactura(archivo);
+      return;
+    }
+    this.archivoSeleccionado.set(archivo);
   }
 
-  subirDocumento(): void {
-    const archivo = this.archivoSeleccionado();
-    if (!archivo) return;
-    if (this.requiereMonto() && !this.form.controls.monto.value) {
-      this.error.set('Ingresa el monto antes de subir el documento.');
-      return;
-    }
-    const { tipoDocumento, monto, numeroChasis, color, marca, modelo, anio } = this.form.getRawValue();
-    if (tipoDocumento === 'FACTURA' && (!numeroChasis || !color || !marca || !modelo || !anio)) {
-      this.error.set('Completa chasis, color, marca, modelo y año antes de subir la factura.');
-      return;
-    }
-
+  /** Sube la factura a GCS y pide OCR best-effort (Document AI) — nunca bloquea si falla, solo avisa. */
+  private procesarFactura(archivo: File): void {
     this.subiendo.set(true);
     this.error.set(null);
+    this.facturaSubida.set(null);
+    this.avisoCalidadFactura.set(null);
 
     this.api.solicitarSubida(this.contratoId, archivo.name, archivo.type).subscribe({
       next: (solicitud) => {
         this.api.subirArchivo(solicitud, archivo).subscribe({
           next: () => {
-            const datos =
-              tipoDocumento === 'FACTURA'
-                ? { tipoDocumento, url: solicitud.publicUrl, monto, numeroChasis, color, marca, modelo, anio }
-                : { tipoDocumento, url: solicitud.publicUrl, monto };
-            this.api.registrarDocumento(this.contratoId, datos).subscribe({
-              next: (documento) => {
-                this.documentos.update((lista) => [...lista, documento]);
-                this.subiendo.set(false);
-                this.archivoSeleccionado.set(null);
-                this.form.reset({ tipoDocumento: 'BOUCHER', monto: null, numeroChasis: '', color: '', marca: '', modelo: '', anio: null });
+            this.subiendo.set(false);
+            this.facturaSubida.set(solicitud);
+            this.extrayendoFactura.set(true);
+            this.api.extraerFactura(this.contratoId, solicitud.gcsPath, archivo.type).subscribe({
+              next: (datos) => {
+                this.extrayendoFactura.set(false);
+                this.form.patchValue({
+                  marca: datos.marca ?? this.form.controls.marca.value,
+                  modelo: datos.modelo ?? this.form.controls.modelo.value,
+                  anio: datos.anio ?? this.form.controls.anio.value,
+                  color: datos.color ?? this.form.controls.color.value,
+                  numeroMotor: datos.numeroMotor ?? this.form.controls.numeroMotor.value,
+                  numeroChasis: datos.numeroChasis ?? this.form.controls.numeroChasis.value,
+                  monto: datos.monto ?? this.form.controls.monto.value
+                });
+                if (datos.posibleProblemaCalidad) {
+                  this.avisoCalidadFactura.set(
+                    datos.detalleProblemaCalidad ?? 'No se pudo leer la factura automáticamente — revisa los datos.'
+                  );
+                }
               },
               error: () => {
-                this.subiendo.set(false);
-                this.error.set('El archivo se subió pero no se pudo registrar. Intenta de nuevo.');
+                this.extrayendoFactura.set(false);
+                this.avisoCalidadFactura.set('No se pudo leer la factura automáticamente. Completa los datos manualmente.');
               }
             });
           },
+          error: () => {
+            this.subiendo.set(false);
+            this.error.set('No se pudo subir la factura.');
+          }
+        });
+      },
+      error: () => {
+        this.subiendo.set(false);
+        this.error.set('No se pudo iniciar la subida.');
+      }
+    });
+  }
+
+  subirDocumento(): void {
+    if (this.requiereMonto() && !this.form.controls.monto.value) {
+      this.error.set('Ingresa el monto antes de subir el documento.');
+      return;
+    }
+    const { tipoDocumento, monto, numeroChasis, color, marca, modelo, anio, numeroMotor } = this.form.getRawValue();
+
+    if (tipoDocumento === 'FACTURA') {
+      const solicitud = this.facturaSubida();
+      if (!solicitud) return;
+      if (!numeroChasis || !color || !marca || !modelo || !anio || !numeroMotor) {
+        this.error.set('Completa marca, modelo, año, color, n° de motor y n° de chasis antes de registrar la factura.');
+        return;
+      }
+      this.registrar({ tipoDocumento, url: solicitud.publicUrl, monto, numeroChasis, color, marca, modelo, anio, numeroMotor });
+      return;
+    }
+
+    const archivo = this.archivoSeleccionado();
+    if (!archivo) return;
+
+    this.subiendo.set(true);
+    this.error.set(null);
+    this.api.solicitarSubida(this.contratoId, archivo.name, archivo.type).subscribe({
+      next: (solicitud) => {
+        this.api.subirArchivo(solicitud, archivo).subscribe({
+          next: () => this.registrar({ tipoDocumento, url: solicitud.publicUrl, monto }),
           error: () => {
             this.subiendo.set(false);
             this.error.set('No se pudo subir el archivo.');
@@ -237,6 +308,36 @@ export class ContratoDetalleComponent {
       error: () => {
         this.subiendo.set(false);
         this.error.set('No se pudo iniciar la subida.');
+      }
+    });
+  }
+
+  private registrar(datos: {
+    tipoDocumento: TipoDocumentoContrato;
+    url: string;
+    monto: number | null;
+    numeroChasis?: string | null;
+    color?: string | null;
+    marca?: string | null;
+    modelo?: string | null;
+    anio?: number | null;
+    numeroMotor?: string | null;
+  }): void {
+    this.subiendo.set(true);
+    this.api.registrarDocumento(this.contratoId, datos).subscribe({
+      next: (documento) => {
+        this.documentos.update((lista) => [...lista, documento]);
+        this.subiendo.set(false);
+        this.archivoSeleccionado.set(null);
+        this.facturaSubida.set(null);
+        this.avisoCalidadFactura.set(null);
+        this.form.reset({
+          tipoDocumento: 'BOUCHER', monto: null, numeroChasis: '', color: '', marca: '', modelo: '', anio: null, numeroMotor: ''
+        });
+      },
+      error: () => {
+        this.subiendo.set(false);
+        this.error.set('El archivo se subió pero no se pudo registrar. Intenta de nuevo.');
       }
     });
   }

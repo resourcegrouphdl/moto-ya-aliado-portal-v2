@@ -55,6 +55,7 @@ export interface DocumentoContrato {
   marca: string | null;
   modelo: string | null;
   anio: number | null;
+  numeroMotor: string | null;
 }
 
 export interface CuotaAmortizacion {
@@ -93,8 +94,23 @@ export interface CronogramaVersion {
 export interface SolicitudSubidaDocumento {
   uploadUrl: string;
   publicUrl: string;
+  /** URI gs://bucket/ruta cruda — la pide el OCR de factura (extraerFactura), no sirve para descargar. */
+  gcsPath: string;
   headerRequeridoNombre: string;
   headerRequeridoValor: string;
+}
+
+/** Resultado best-effort del OCR de una factura de vehículo — ver DocumentAiFacturaVehiculoClient (backend). */
+export interface DatosFacturaVehiculoExtraidos {
+  marca: string | null;
+  modelo: string | null;
+  anio: number | null;
+  color: string | null;
+  numeroMotor: string | null;
+  numeroChasis: string | null;
+  monto: number | null;
+  posibleProblemaCalidad: boolean;
+  detalleProblemaCalidad: string | null;
 }
 
 export const ESTADO_FORMALIZACION_LABEL: Record<EstadoFormalizacion, string> = {

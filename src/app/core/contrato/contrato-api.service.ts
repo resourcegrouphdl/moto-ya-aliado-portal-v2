@@ -2,7 +2,13 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { ContratoResumen, CronogramaVersion, DocumentoContrato, SolicitudSubidaDocumento } from './contrato.models';
+import {
+  ContratoResumen,
+  CronogramaVersion,
+  DatosFacturaVehiculoExtraidos,
+  DocumentoContrato,
+  SolicitudSubidaDocumento
+} from './contrato.models';
 
 /**
  * Wrapper sobre /partner/contrato/contratos (BC-03, motoya-api) — todo
@@ -63,9 +69,18 @@ export class ContratoApiService {
       marca?: string | null;
       modelo?: string | null;
       anio?: number | null;
+      numeroMotor?: string | null;
     }
   ): Observable<DocumentoContrato> {
     return this.http.post<DocumentoContrato>(`${this.base}/${contratoId}/documentos`, datos);
+  }
+
+  /** OCR best-effort de una factura ya subida a GCS — mismo criterio que el flujo de identidad (documento-identidad-upload). */
+  extraerFactura(contratoId: string, gcsPath: string, contentType: string): Observable<DatosFacturaVehiculoExtraidos> {
+    return this.http.post<DatosFacturaVehiculoExtraidos>(`${this.base}/${contratoId}/documentos/extraer-factura`, {
+      gcsPath,
+      contentType
+    });
   }
 
   /**

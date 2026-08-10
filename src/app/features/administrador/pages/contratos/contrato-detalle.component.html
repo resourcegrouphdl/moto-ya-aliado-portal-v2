@@ -144,7 +144,8 @@
               </div>
               @if (doc.tipoDocumento === 'FACTURA' && doc.numeroChasis) {
                 <p class="documentos-list__notas">
-                  {{ doc.marca }} {{ doc.modelo }} ({{ doc.anio }}) · {{ doc.color }} · Chasis {{ doc.numeroChasis }}
+                  {{ doc.marca }} {{ doc.modelo }} ({{ doc.anio }}) · {{ doc.color }} · Motor {{ doc.numeroMotor }} · Chasis
+                  {{ doc.numeroChasis }}
                 </p>
               }
               @if (doc.notas) {
@@ -165,18 +166,38 @@
             <mt-input label="Monto (S/)" type="number" formControlName="monto" />
           }
           @if (esFactura()) {
+            <label class="documentos-form__file">
+              Archivo de la factura
+              <input type="file" [disabled]="subiendo() || extrayendoFactura()" (change)="onArchivoSeleccionado($event)" />
+            </label>
+            @if (subiendo() && !facturaSubida()) {
+              <p class="contrato-detalle__empty">Subiendo la factura…</p>
+            } @else if (extrayendoFactura()) {
+              <p class="contrato-detalle__empty">Leyendo la factura y buscando marca, modelo, año, color, motor y chasis…</p>
+            } @else if (facturaSubida()) {
+              <p class="contrato-detalle__empty">Factura subida — revisa y corrige los datos antes de registrar.</p>
+            }
+            @if (avisoCalidadFactura()) {
+              <mt-alert variant="warning">{{ avisoCalidadFactura() }}</mt-alert>
+            }
             <mt-input label="Marca" formControlName="marca" />
             <mt-input label="Modelo" formControlName="modelo" />
             <mt-input label="Año" type="number" formControlName="anio" />
             <mt-input label="Color" formControlName="color" />
+            <mt-input label="N° de motor" formControlName="numeroMotor" />
             <mt-input label="N° de chasis" formControlName="numeroChasis" />
+          } @else {
+            <label class="documentos-form__file">
+              Archivo
+              <input type="file" (change)="onArchivoSeleccionado($event)" />
+            </label>
           }
-          <label class="documentos-form__file">
-            Archivo
-            <input type="file" (change)="onArchivoSeleccionado($event)" />
-          </label>
-          <mt-button [loading]="subiendo()" [disabled]="!archivoSeleccionado()" (click)="subirDocumento()">
-            Subir documento
+          <mt-button
+            [loading]="subiendo()"
+            [disabled]="esFactura() ? !facturaSubida() || extrayendoFactura() : !archivoSeleccionado()"
+            (click)="subirDocumento()"
+          >
+            {{ esFactura() ? 'Registrar factura' : 'Subir documento' }}
           </mt-button>
         </form>
       }
