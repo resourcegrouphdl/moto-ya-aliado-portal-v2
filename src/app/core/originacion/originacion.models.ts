@@ -240,6 +240,12 @@ export interface DatosVehiculo {
   inicialIngresada?: number | null;
   /** Cuotas que el cliente pidió — mismo criterio que inicialIngresada. */
   numeroPeriodos?: number | null;
+  /**
+   * A diferencia de inicialIngresada/numeroPeriodos, esta decisión SÍ es
+   * vinculante (2026-08-10): viaja hasta la cotización real que sustenta
+   * certificado y contrato — nunca se ignora silenciosamente.
+   */
+  incluyeSoat: boolean;
 }
 
 export interface VehiculoSolicitudResponse extends DatosVehiculo {

@@ -63,6 +63,12 @@ const TIPOS_DOCUMENTO: SelectOption<TipoDocumentoIdentidad>[] = [
   { label: 'Carné de extranjería', value: 'CARNET_EXTRANJERIA' }
 ];
 
+/** Mismas opciones/monto que la calculadora (`calculadora.component.ts`) — mismo criterio de duplicado a propósito, sin endpoint de solo lectura para /partner que exponga el monto real. */
+const SOAT_OPTIONS: SelectOption<boolean>[] = [
+  { label: 'Sí, incluir SOAT (S/ 750)', value: true },
+  { label: 'No, el cliente ya lo tiene', value: false }
+];
+
 const NACIONALIDAD_OPTIONS: SelectOption<Nacionalidad>[] = Object.entries(NACIONALIDAD_LABEL).map(([value, label]) => ({
   value: value as Nacionalidad,
   label
@@ -172,6 +178,7 @@ export class SolicitudComponent {
   protected readonly relaciones = RELACIONES;
   protected readonly nacionalidades = NACIONALIDAD_OPTIONS;
   protected readonly estadosCiviles = ESTADO_CIVIL_OPTIONS;
+  protected readonly soatOptions = SOAT_OPTIONS;
   protected readonly slotsDocumentosTitular = DOCUMENTOS_TITULAR;
   protected readonly slotsDocumentosAvalista = DOCUMENTOS_AVALISTA;
 
@@ -305,7 +312,8 @@ export class SolicitudComponent {
     numeroChasis: [''],
     precioVehiculo: [0, [Validators.required, Validators.min(1)]],
     inicialIngresada: this.fb.control<number | null>(null),
-    numeroPeriodos: this.fb.control<number | null>(null)
+    numeroPeriodos: this.fb.control<number | null>(null),
+    incluyeSoat: [false, Validators.required]
   });
 
   protected readonly formReferencia = this.fb.nonNullable.group({
@@ -413,7 +421,8 @@ export class SolicitudComponent {
         numeroChasis: vehiculo.numeroChasis ?? '',
         precioVehiculo: vehiculo.precioVehiculo,
         inicialIngresada: vehiculo.inicialIngresada ?? null,
-        numeroPeriodos: vehiculo.numeroPeriodos ?? null
+        numeroPeriodos: vehiculo.numeroPeriodos ?? null,
+        incluyeSoat: vehiculo.incluyeSoat
       });
     }
 

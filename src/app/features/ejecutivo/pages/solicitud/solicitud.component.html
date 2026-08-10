@@ -303,7 +303,8 @@
 
         <mt-input class="span-6" label="Inicial disponible (S/)" formControlName="inicialIngresada" type="number" icon="savings" />
         <mt-input class="span-6" label="Cuotas deseadas" formControlName="numeroPeriodos" type="number" />
-        <p class="span-12 form-hint">Lo que pide el cliente — es referencial, riesgo define el financiamiento final al evaluar.</p>
+        <mt-select class="span-12" label="SOAT" formControlName="incluyeSoat" [options]="soatOptions" />
+        <p class="span-12 form-hint">Inicial y cuotas son lo que pide el cliente — referencial, riesgo define el financiamiento final al evaluar. El SOAT sí es vinculante: se incluye o no en la cotización real.</p>
       </form>
 
       <div card-footer class="step-actions">
@@ -400,6 +401,7 @@
               @if (vehiculo()?.numeroPeriodos) { · {{ vehiculo()?.numeroPeriodos }} cuotas }
             </p>
           }
+          <p class="review-block__meta">{{ vehiculo()?.incluyeSoat ? 'Incluye SOAT' : 'Sin SOAT' }}</p>
         </section>
 
         <section class="review-block">
