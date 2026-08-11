@@ -110,6 +110,7 @@
         [direccionTexto]="direccionTitularTexto()"
         (addressParsed)="onDireccionTitularParsed($event)"
         (coordenadasCambiadas)="onCoordenadasTitular($event)"
+        (usarDireccionSugerida)="onUsarDireccionSugeridaTitular($event)"
       />
 
       <div card-footer class="step-actions">
@@ -235,6 +236,7 @@
         [direccionTexto]="direccionAvalistaTexto()"
         (addressParsed)="onDireccionAvalistaParsed($event)"
         (coordenadasCambiadas)="onCoordenadasAvalista($event)"
+        (usarDireccionSugerida)="onUsarDireccionSugeridaAvalista($event)"
       />
 
       <div card-footer class="step-actions">

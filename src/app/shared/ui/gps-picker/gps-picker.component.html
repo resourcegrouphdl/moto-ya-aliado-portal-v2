@@ -63,6 +63,15 @@
       </div>
       @if (direccionAproximada()) {
         <p class="gps-picker__result-address">{{ direccionAproximada() }}</p>
+        <button type="button" class="gps-picker__usar-sugerencia" (click)="confirmarDireccionSugerida()">
+          <mt-icon name="content_copy" [size]="14" />
+          Usar esta dirección
+        </button>
+      } @else if (sinDireccionExacta()) {
+        <p class="gps-picker__result-sin-direccion">
+          <mt-icon name="info" [size]="14" />
+          No encontramos una dirección exacta en este punto — completa el campo "Dirección" a mano.
+        </p>
       }
       <p class="gps-picker__result-coords">{{ coordenadasTexto() }}</p>
     </div>
@@ -115,6 +124,11 @@
         <div class="gps-picker__result gps-picker__result--modal">
           @if (direccionAproximada()) {
             <p class="gps-picker__result-address">{{ direccionAproximada() }}</p>
+          } @else if (sinDireccionExacta()) {
+            <p class="gps-picker__result-sin-direccion">
+              <mt-icon name="info" [size]="14" />
+              No encontramos una dirección exacta en este punto — completa el campo "Dirección" a mano.
+            </p>
           }
           <p class="gps-picker__result-coords">{{ coordenadasTexto() }}</p>
         </div>

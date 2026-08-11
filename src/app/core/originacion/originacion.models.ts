@@ -78,6 +78,8 @@ export interface CrearClienteRequest {
   direccion?: string;
   latitud?: number | null;
   longitud?: number | null;
+  /** Sugerencia de Google al marcar el pin en el mapa — nunca se usa en documentos generados, solo para uso futuro. */
+  direccionSugerida?: string | null;
   fechaNacimiento?: string | null;
   nacionalidad?: Nacionalidad | null;
   estadoCivil?: EstadoCivil | null;
@@ -98,6 +100,8 @@ export interface ClienteResponse {
   direccion: string | null;
   latitud: number | null;
   longitud: number | null;
+  /** Sugerencia de Google al marcar el pin en el mapa — nunca se usa en documentos generados, solo para uso futuro. */
+  direccionSugerida: string | null;
   /** Nunca se persiste — motoya-api la calcula al vuelo desde fechaNacimiento. */
   fechaNacimiento: string | null;
   edad: number | null;
@@ -115,6 +119,7 @@ export interface ActualizarDireccionRequest {
   direccion?: string | null;
   latitud?: number | null;
   longitud?: number | null;
+  direccionSugerida?: string | null;
   fechaNacimiento?: string | null;
   nacionalidad?: Nacionalidad | null;
   estadoCivil?: EstadoCivil | null;

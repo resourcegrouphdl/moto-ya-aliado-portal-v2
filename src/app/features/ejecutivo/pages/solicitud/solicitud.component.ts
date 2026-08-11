@@ -237,6 +237,7 @@ export class SolicitudComponent {
     provincia: [''],
     distrito: [''],
     direccion: [''],
+    direccionSugerida: [''],
     latitud: [null as number | null],
     longitud: [null as number | null],
     fechaNacimiento: [''],
@@ -255,6 +256,7 @@ export class SolicitudComponent {
     provincia: [''],
     distrito: [''],
     direccion: [''],
+    direccionSugerida: [''],
     latitud: [null as number | null],
     longitud: [null as number | null],
     fechaNacimiento: [''],
@@ -375,6 +377,7 @@ export class SolicitudComponent {
       provincia: titular.provincia ?? '',
       distrito: titular.distrito ?? '',
       direccion: titular.direccion ?? '',
+      direccionSugerida: titular.direccionSugerida ?? '',
       latitud: titular.latitud,
       longitud: titular.longitud,
       fechaNacimiento: titular.fechaNacimiento ?? '',
@@ -399,6 +402,7 @@ export class SolicitudComponent {
         provincia: avalista.provincia ?? '',
         distrito: avalista.distrito ?? '',
         direccion: avalista.direccion ?? '',
+        direccionSugerida: avalista.direccionSugerida ?? '',
         latitud: avalista.latitud,
         longitud: avalista.longitud,
         fechaNacimiento: avalista.fechaNacimiento ?? '',
@@ -555,12 +559,22 @@ export class SolicitudComponent {
     this.formTitular.patchValue({ latitud: coords.latitud, longitud: coords.longitud });
   }
 
+  /** El vendedor pidió explícitamente usar la sugerencia de Google como dirección final. */
+  protected onUsarDireccionSugeridaTitular(direccion: string): void {
+    this.formTitular.patchValue({ direccion });
+  }
+
   protected onDireccionAvalistaParsed(data: DireccionParseada): void {
     this.formAvalista.patchValue(data);
   }
 
   protected onCoordenadasAvalista(coords: Coordenadas): void {
     this.formAvalista.patchValue({ latitud: coords.latitud, longitud: coords.longitud });
+  }
+
+  /** El vendedor pidió explícitamente usar la sugerencia de Google como dirección final. */
+  protected onUsarDireccionSugeridaAvalista(direccion: string): void {
+    this.formAvalista.patchValue({ direccion });
   }
 
   continuarTitular(): void {
@@ -587,6 +601,7 @@ export class SolicitudComponent {
           provincia: datos.provincia,
           distrito: datos.distrito,
           direccion: datos.direccion,
+          direccionSugerida: datos.direccionSugerida,
           latitud: datos.latitud,
           longitud: datos.longitud,
           fechaNacimiento: datos.fechaNacimiento || null,
@@ -619,6 +634,7 @@ export class SolicitudComponent {
             provincia: datos.provincia,
             distrito: datos.distrito,
             direccion: datos.direccion,
+            direccionSugerida: datos.direccionSugerida,
             latitud: datos.latitud,
             longitud: datos.longitud,
             fechaNacimiento: datos.fechaNacimiento || null,
@@ -706,6 +722,7 @@ export class SolicitudComponent {
             provincia: datos.provincia,
             distrito: datos.distrito,
             direccion: datos.direccion,
+            direccionSugerida: datos.direccionSugerida,
             latitud: datos.latitud,
             longitud: datos.longitud,
             fechaNacimiento: datos.fechaNacimiento || null,

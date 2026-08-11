@@ -20,8 +20,25 @@ import { ButtonComponent } from '../button/button.component';
 import { IconComponent } from '../icon/icon.component';
 
 export interface DireccionParseada {
-  /** Ausente cuando el geocoding se originó en el texto tipeado por el usuario — nunca se debe pisar lo que está escribiendo. */
+  /**
+   * Ausente cuando el geocoding se originó en el texto tipeado por el
+   * usuario (nunca se debe pisar lo que está escribiendo) o cuando Google no
+   * encontró calle/número reales para el punto marcado (zona sin catastro —
+   * bug real 2026-08-10: antes esto caía a un Plus Code que terminaba
+   * impreso tal cual en los contratos; ver {@code obtenerDireccionReversa}).
+   * Cuando está presente, SÍ se auto-completa el campo "Dirección" del
+   * formulario padre — es la misma dirección real que trae Google, auto-
+   * completar acá está bien.
+   */
   direccion?: string;
+  /**
+   * Igual que {@code direccion} cuando Google encontró algo real — se emite
+   * aparte para que el padre la guarde en {@code direccionSugerida} (columna
+   * propia, uso futuro) independientemente de si el vendedor luego edita a
+   * mano el campo "Dirección". Nunca se usa para documentos generados
+   * (contratos, etc.) — esa fuente sigue siendo únicamente `direccion`.
+   */
+  direccionSugerida?: string;
   departamento: string;
   provincia: string;
   distrito: string;
@@ -45,17 +62,18 @@ const CENTRO_DEFAULT: google.maps.LatLngLiteral = { lat: -12.0464, lng: -77.0428
  * manual de <script> de Google Maps porque Geocoder se usa imperativamente —
  * @angular/google-maps solo cubre <google-map>/<map-marker> como directivas.
  *
- * Antes tenía su propio buscador de direcciones (Places Autocomplete) que
- * duplicaba visualmente el campo "Dirección" del formulario padre sin estar
- * sincronizados entre sí (corregido 2026-07-16). El campo de texto libre del
- * formulario sigue siendo la única fuente editable de la dirección — este
- * componente la sigue en ambos sentidos: reverse-geocoding cuando el
- * vendedor marca un punto en el mapa, y forward-geocoding (vía
- * {@code direccionTexto}, con debounce) cuando escribe la dirección a mano,
- * para que ubicar el pin no dependa de que sepa buscarlo manualmente en el
- * mapa (2026-07-20). {@code ultimaDireccionEmitida} evita el eco: el texto
- * que el propio reverse-geocoding acaba de escribir en el formulario padre
- * no debe disparar un nuevo forward-geocoding.
+ * <p>El campo de texto libre "Dirección" del formulario padre es la ÚNICA
+ * fuente de lo que termina en los documentos generados (contratos, etc.) —
+ * este componente nunca lo escribe por su cuenta (bug real 2026-08-10: antes
+ * el reverse-geocoding al marcar el pin sí lo hacía, y en zonas sin catastro
+ * terminaba imprimiendo un Plus Code en vez de una dirección real). Lo que
+ * Google sugiere para el punto marcado se muestra aparte
+ * ({@code direccionAproximada}) y se emite como {@code direccionSugerida} —
+ * el padre decide qué hacer con eso (guardarlo aparte para uso futuro,
+ * mostrar el botón "Usar esta dirección" que copia el texto a mano). El
+ * forward-geocoding (buscar el pin a partir de lo tipeado, con debounce)
+ * sigue funcionando igual que antes — eso sí ayuda a ubicar el mapa sin
+ * pisar el campo de texto.
  */
 @Component({
   selector: 'mt-gps-picker',
@@ -73,6 +91,8 @@ export class GpsPickerComponent implements OnInit {
 
   coordenadasCambiadas = output<Coordenadas>();
   addressParsed = output<DireccionParseada>();
+  /** El vendedor confirmó explícitamente que quiere copiar la sugerencia al campo "Dirección". */
+  usarDireccionSugerida = output<string>();
 
   private readonly platformId = inject(PLATFORM_ID);
   private readonly ngZone = inject(NgZone);
@@ -103,6 +123,8 @@ export class GpsPickerComponent implements OnInit {
   protected readonly coordenadasTexto = signal('');
   protected readonly direccionAproximada = signal('');
   protected readonly modoMapa = signal<ModoMapa>('roadmap');
+  /** Google no encontró calle/número (ni ningún resultado no-Plus-Code) para el punto marcado — zona sin catastro. */
+  protected readonly sinDireccionExacta = signal(false);
 
   protected readonly centro = signal<google.maps.LatLngLiteral>(CENTRO_DEFAULT);
   protected readonly zoom = signal(13);
@@ -169,6 +191,16 @@ export class GpsPickerComponent implements OnInit {
     this.actualizarCoordenadas(event.latLng.lat(), event.latLng.lng());
   }
 
+  // ── Sugerencia de dirección ──────────────────────────────────────────────
+
+  /** El vendedor hizo clic en "Usar esta dirección" — copia la sugerencia al campo del formulario padre, a propósito. */
+  protected confirmarDireccionSugerida(): void {
+    const sugerida = this.direccionAproximada();
+    if (!sugerida) return;
+    this.ultimaDireccionEmitida = sugerida;
+    this.usarDireccionSugerida.emit(sugerida);
+  }
+
   // ── Modo mapa / satélite ─────────────────────────────────────────────────
 
   toggleModoMapa(): void {
@@ -199,6 +231,7 @@ export class GpsPickerComponent implements OnInit {
     this.coordenadas.set(null);
     this.coordenadasTexto.set('');
     this.direccionAproximada.set('');
+    this.sinDireccionExacta.set(false);
     this.estado.set('idle');
   }
 
@@ -232,11 +265,15 @@ export class GpsPickerComponent implements OnInit {
     if (!this.geocoder) return;
     this.geocoder.geocode({ location: { lat, lng } }, (results, status) => {
       this.ngZone.run(() => {
-        if (status === google.maps.GeocoderStatus.OK && results?.[0]) {
-          const resultado = results[1] ?? results[0];
-          this.direccionAproximada.set(resultado.formatted_address);
-          this.emitirDireccionParseada(resultado.address_components || []);
-        }
+        if (status !== google.maps.GeocoderStatus.OK || !results?.length) return;
+
+        // Google puede devolver un Plus Code como primer resultado cuando el
+        // punto no tiene una dirección catastrada para esa ubicación exacta
+        // (bug real 2026-08-10) — se descarta explícitamente en vez de
+        // usarlo como "dirección aproximada".
+        const resultado = results.find((r) => !r.types.includes('plus_code')) ?? null;
+        this.direccionAproximada.set(resultado?.formatted_address ?? '');
+        this.emitirDireccionParseada(resultado?.address_components ?? []);
       });
     });
   }
@@ -257,19 +294,29 @@ export class GpsPickerComponent implements OnInit {
       if (c.types.includes('administrative_area_level_1')) departamento = c.long_name;
     }
 
-    const direccion = [calle, numero].filter(Boolean).join(' ') || this.direccionAproximada();
-    this.ultimaDireccionEmitida = direccion;
+    const calleYNumero = [calle, numero].filter(Boolean).join(' ');
+    const hayDireccionReal = calleYNumero.length > 0;
+    if (hayDireccionReal) {
+      this.ultimaDireccionEmitida = calleYNumero;
+    }
 
-    // Si el geocoding vino de lo que el usuario está tipeando, no se reenvía
-    // `direccion` — pisar el campo con la versión normalizada de Google
-    // interrumpe la escritura. Solo cuando el origen es el mapa (clic/arrastre
-    // del pin) el texto del formulario se reemplaza por la dirección real.
+    // `direccion` (auto-completa el campo del padre) solo cuando: (a) el
+    // geocoding vino del mapa, no de lo que el usuario está tipeando —
+    // pisar el campo mientras escribe interrumpe la escritura; y (b) Google
+    // encontró una calle/número reales, nunca un Plus Code/aproximación
+    // (bug real 2026-08-10). `direccionSugerida` viaja aparte siempre que
+    // haya una dirección real, sin importar el origen — el padre la guarda
+    // en su propia columna para uso futuro, independiente de si el
+    // vendedor edita luego el campo "Dirección" a mano.
     this.addressParsed.emit({
-      ...(this.origenGeocodificacion === 'mapa' ? { direccion } : {}),
+      ...(this.origenGeocodificacion === 'mapa' && hayDireccionReal ? { direccion: calleYNumero } : {}),
+      ...(hayDireccionReal ? { direccionSugerida: calleYNumero } : {}),
       departamento,
       provincia,
       distrito
     });
+
+    this.sinDireccionExacta.set(this.origenGeocodificacion === 'mapa' && !hayDireccionReal);
   }
 
   private cargarScriptMaps(): Promise<void> {
