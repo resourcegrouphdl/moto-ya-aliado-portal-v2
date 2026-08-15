@@ -19,7 +19,11 @@ import { IconComponent } from '../../../../shared/ui/icon/icon.component';
 import { InputComponent } from '../../../../shared/ui/input/input.component';
 import { DateInputComponent } from '../../../../shared/ui/date-input/date-input.component';
 import { SelectComponent, SelectOption } from '../../../../shared/ui/select/select.component';
+import { ModalService } from '../../../../shared/ui/modal/modal.service';
+import { PreCalificacionAlertDialogComponent } from '../../../../shared/ui/modal/pre-calificacion-alert-dialog.component';
 import { OriginacionApiService } from '../../../../core/originacion/originacion-api.service';
+import { PreCalificacionApiService } from '../../../../core/riesgo/precalificacion-api.service';
+import { ResultadoPreCalificacion } from '../../../../core/riesgo/precalificacion.models';
 import {
   ClienteResponse,
   DOCUMENTOS_AVALISTA,
@@ -172,6 +176,8 @@ export class SolicitudComponent {
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(OriginacionApiService);
   private readonly route = inject(ActivatedRoute);
+  private readonly preCalificacionApi = inject(PreCalificacionApiService);
+  private readonly modalService = inject(ModalService);
 
   protected readonly pasos = PASOS;
   protected readonly tiposDocumento = TIPOS_DOCUMENTO;
@@ -224,6 +230,20 @@ export class SolicitudComponent {
   // avanzar de 'avalista' (con ambos clientes ya resueltos).
   protected readonly historialTitular = signal<HistorialSolicitudCliente[]>([]);
   protected readonly relacionCircularDetectada = signal(false);
+
+  // Pre-calificación temprana (2026-08-14) — a diferencia del historial/relación circular de arriba, ESTA sí
+  // puede bloquear el avance (zona ROJO, ver zonaBloqueaAvance()): es "nuestro primer filtro" según el negocio,
+  // no un simple aviso informativo. Se resetea cada vez que el titular cambia el número de documento, para nunca
+  // quedar bloqueado por el resultado de un documento distinto al que está tipeado ahora.
+  protected readonly preCalificacionTitular = signal<ResultadoPreCalificacion | null>(null);
+  protected readonly evaluandoPreCalificacionTitular = signal(false);
+  protected readonly zonaBloqueaAvanceTitular = computed(() => this.preCalificacionTitular()?.zona === 'ROJO');
+
+  // Mismo patrón para el aval (2026-08-14) — misma zona ROJO bloquea, pero la salida es distinta: acá el vendedor
+  // puede cambiar el número de documento del aval e intentar con otro, sin tocar nada del titular.
+  protected readonly preCalificacionAvalista = signal<ResultadoPreCalificacion | null>(null);
+  protected readonly evaluandoPreCalificacionAvalista = signal(false);
+  protected readonly zonaBloqueaAvanceAvalista = computed(() => this.preCalificacionAvalista()?.zona === 'ROJO');
 
   protected readonly formTitular = this.fb.nonNullable.group({
     tipoDocumento: ['DNI' as TipoDocumentoIdentidad, Validators.required],
@@ -332,6 +352,8 @@ export class SolicitudComponent {
   constructor() {
     this.configurarLookupTitular();
     this.configurarLookupAvalista();
+    this.configurarPreCalificacionTitular();
+    this.configurarPreCalificacionAvalista();
 
     const idExistente = this.route.snapshot.paramMap.get('id');
     if (idExistente) {
@@ -486,6 +508,97 @@ export class SolicitudComponent {
       });
   }
 
+  /**
+   * Pre-calificación temprana (2026-08-14) — al obtener el DNI del titular (mismo trigger que el lookup de
+   * json.pe arriba, debounce independiente sobre el mismo `valueChanges`), consulta Equifax y evalúa el semáforo
+   * ANTES de que el ejecutivo invierta tiempo en KYC completo (7+ documentos, avalista, referencias). Solo aplica
+   * al titular — el avalista no financia el vehículo, no tiene sentido pre-calificarlo con el mismo criterio (ver
+   * REGLAS_AVAL en el motor de riesgo real, que ya excluye capacidad de pago para el aval).
+   *
+   * <p>Si Equifax falla o el módulo no está disponible, nunca bloquea — igual criterio que el lookup de json.pe:
+   * el ejecutivo sigue el flujo normal, sin ningún aviso (más seguro fallar "abierto" acá que trabar una venta por
+   * un problema de la integración, no del cliente).
+   */
+  private configurarPreCalificacionTitular(): void {
+    this.formTitular.controls.numeroDocumento.valueChanges
+      .pipe(
+        debounceTime(500),
+        distinctUntilChanged(),
+        filter((numero) => numero.trim().length >= 8),
+        tap(() => {
+          this.preCalificacionTitular.set(null);
+          this.evaluandoPreCalificacionTitular.set(true);
+        }),
+        switchMap((numero) =>
+          this.preCalificacionApi
+            .evaluar(this.codigoDocumentoEquifax(this.formTitular.controls.tipoDocumento.value), numero, 'TITULAR')
+            .pipe(catchError(() => of(null)))
+        )
+      )
+      .subscribe((resultado) => {
+        this.evaluandoPreCalificacionTitular.set(false);
+        if (!resultado) return;
+        this.preCalificacionTitular.set(resultado);
+        if (resultado.zona === 'AMARILLO' || resultado.zona === 'ROJO') {
+          this.mostrarAvisoPreCalificacion(resultado);
+        }
+      });
+  }
+
+  /** Contraparte de configurarPreCalificacionTitular() para el aval — mismo patrón, mismo modal, mismo bloqueo en rojo. */
+  private configurarPreCalificacionAvalista(): void {
+    this.formAvalista.controls.numeroDocumento.valueChanges
+      .pipe(
+        debounceTime(500),
+        distinctUntilChanged(),
+        filter((numero) => numero.trim().length >= 8),
+        tap(() => {
+          this.preCalificacionAvalista.set(null);
+          this.evaluandoPreCalificacionAvalista.set(true);
+        }),
+        switchMap((numero) =>
+          this.preCalificacionApi
+            .evaluar(this.codigoDocumentoEquifax(this.formAvalista.controls.tipoDocumento.value), numero, 'AVAL')
+            .pipe(catchError(() => of(null)))
+        )
+      )
+      .subscribe((resultado) => {
+        this.evaluandoPreCalificacionAvalista.set(false);
+        if (!resultado) return;
+        this.preCalificacionAvalista.set(resultado);
+        if (resultado.zona === 'AMARILLO' || resultado.zona === 'ROJO') {
+          this.mostrarAvisoPreCalificacion(resultado);
+        }
+      });
+  }
+
+  /**
+   * PreCalificacionApiService habla con Equifax, que usa su propio catálogo numérico de documento (1=DNI, 6=RUC,
+   * 3=CE, 4=PAS — mismo que ya usa la pantalla "Consulta Crediticia" de admin-v2), distinto del catálogo de
+   * originación (`TipoDocumentoIdentidad`, texto). El mapeo vive acá (no en el servicio) para no acoplar
+   * `core/riesgo` al modelo de `core/originacion` — cada bounded context mantiene su propio vocabulario.
+   */
+  private codigoDocumentoEquifax(tipo: TipoDocumentoIdentidad): string {
+    return tipo === 'CARNET_EXTRANJERIA' ? '3' : '1';
+  }
+
+  /**
+   * ROJO: informativo, sin botón de continuar (el ejecutivo no puede avanzar — ver zonaBloqueaAvanceTitular()).
+   * AMARILLO: si el ejecutivo elige "Continuar bajo riesgo", queda registrado en el backend (auditado) — nunca se
+   * asume silenciosamente, es una decisión explícita del ejecutivo cada vez.
+   */
+  private mostrarAvisoPreCalificacion(resultado: ResultadoPreCalificacion): void {
+    this.modalService
+      .open(PreCalificacionAlertDialogComponent, {
+        data: { zona: resultado.zona as 'AMARILLO' | 'ROJO', mensaje: resultado.mensaje ?? '' }
+      })
+      .closed.subscribe((continuar) => {
+        if (resultado.zona === 'AMARILLO' && continuar === true) {
+          this.preCalificacionApi.continuarBajoRiesgo(resultado.id).subscribe();
+        }
+      });
+  }
+
   private configurarLookupAvalista(): void {
     this.formAvalista.controls.numeroDocumento.valueChanges
       .pipe(
@@ -582,6 +695,11 @@ export class SolicitudComponent {
       this.formTitular.markAllAsTouched();
       return;
     }
+    // Defensivo — el botón ya queda [disabled] en el template (zonaBloqueaAvanceTitular()), esto cubre cualquier
+    // otro disparador del submit (ej. Enter dentro de un input del form).
+    if (this.zonaBloqueaAvanceTitular()) {
+      return;
+    }
     const datos = this.formTitular.getRawValue();
     this.guardando.set(true);
     this.error.set(null);
@@ -661,9 +779,32 @@ export class SolicitudComponent {
           this.paso.set('documentos-titular');
           this.cargarHistorialTitular(cliente.tipoDocumento, cliente.numeroDocumento);
           this.registrarFotoIdentidadTitularSiExiste(solicitud.id);
+          this.vincularPreCalificacionSiExiste(solicitud.id);
         },
         error: (err: HttpErrorResponse) => this.manejarError(err)
       });
+  }
+
+  /** Completa el vínculo pre-calificación↔solicitud (ver PreCalificacion.solicitudId en el backend) — best-effort, nunca bloquea el avance. */
+  private vincularPreCalificacionSiExiste(solicitudId: string): void {
+    const preCalificacionId = this.preCalificacionTitular()?.id;
+    if (!preCalificacionId) return;
+    this.preCalificacionApi.vincularSolicitud(preCalificacionId, solicitudId).subscribe({
+      error: () => {
+        /* No bloquea — el ciclo de retro-alimentación pierde este dato puntual, no la venta. */
+      }
+    });
+  }
+
+  /** Misma lógica que vincularPreCalificacionSiExiste, para el aval — acá la solicitud ya existía antes de llamar. */
+  private vincularPreCalificacionAvalistaSiExiste(solicitudId: string): void {
+    const preCalificacionId = this.preCalificacionAvalista()?.id;
+    if (!preCalificacionId) return;
+    this.preCalificacionApi.vincularSolicitud(preCalificacionId, solicitudId).subscribe({
+      error: () => {
+        /* No bloquea — el ciclo de retro-alimentación pierde este dato puntual, no la venta. */
+      }
+    });
   }
 
   /** La foto ya se subió a staging antes de crear la solicitud (mt-documento-identidad-upload) — se registra como DNI_FRENTE sin volver a subirla. */
@@ -701,6 +842,10 @@ export class SolicitudComponent {
   continuarAvalista(): void {
     if (this.formAvalista.invalid) {
       this.formAvalista.markAllAsTouched();
+      return;
+    }
+    // Defensivo — el botón ya queda [disabled] en el template (zonaBloqueaAvanceAvalista()).
+    if (this.zonaBloqueaAvanceAvalista()) {
       return;
     }
     const solicitud = this.solicitud();
@@ -747,6 +892,7 @@ export class SolicitudComponent {
           this.paso.set('documentos-avalista');
           this.verificarRelacionCircularAvalista(cliente.id);
           this.registrarFotoIdentidadAvalistaSiExiste(solicitud.id);
+          this.vincularPreCalificacionAvalistaSiExiste(solicitud.id);
         },
         error: (err: HttpErrorResponse) => this.manejarError(err)
       });

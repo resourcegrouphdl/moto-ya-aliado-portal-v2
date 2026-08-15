@@ -27,6 +27,13 @@
   </div>
 
   <form [formGroup]="form" class="form-grid" (ngSubmit)="cotizar()">
+    <mt-input
+      class="span-12"
+      label="Modelo de moto (opcional)"
+      formControlName="modeloMoto"
+      icon="two_wheeler"
+      hint="Aparece en la tarjeta para el cliente y en el mensaje de WhatsApp."
+    />
     <mt-input class="span-6" label="Precio de la moto (S/)" formControlName="precioVehiculo" type="number" icon="two_wheeler" [hint]="hintPrecio()" />
     <mt-input
       class="span-6"
@@ -52,10 +59,71 @@
 </mt-card>
 
 @if (resultado(); as r) {
+  <section class="vista-comercial">
+    <h2 class="vista-comercial__titulo">Compara planes</h2>
+    <div class="planes-grid">
+      @for (plan of planesComparacion(); track plan.semanas) {
+        <div class="plan-card" [class.plan-card--destacado]="plan.semanas === planDestacadoSemanas()">
+          <span class="plan-card__semanas">{{ plan.semanas }} SEM</span>
+          <span class="plan-card__cuota">S/ {{ plan.cuotaSemanal | number: '1.0-0' }}</span>
+          <span class="plan-card__label">por semana</span>
+        </div>
+      } @empty {
+        @if (cargandoPlanes()) {
+          <p class="text-muted">Calculando planes…</p>
+        }
+      }
+    </div>
+
+    <h2 class="vista-comercial__titulo">Tarjeta para el cliente</h2>
+    <div class="tarjeta-cliente">
+      <div class="tarjeta-cliente__marca">
+        <span class="material-symbols-rounded">two_wheeler</span>
+        <span>Moto Ya Digital</span>
+        <span class="tarjeta-cliente__badge">COTIZACIÓN</span>
+      </div>
+
+      <div class="tarjeta-cliente__moto">
+        <span class="tarjeta-cliente__moto-label">MOTO</span>
+        <span class="tarjeta-cliente__moto-nombre">{{ form.controls.modeloMoto.value.trim() || 'Moto sin nombre' }}</span>
+        <span class="tarjeta-cliente__moto-precio">S/ {{ r.precioVehiculo | number: '1.0-0' }}</span>
+      </div>
+
+      <div class="tarjeta-cliente__grid">
+        <div>
+          <span class="tarjeta-cliente__dt">INICIAL</span>
+          <span class="tarjeta-cliente__dd">S/ {{ r.inicialAplicada | number: '1.0-0' }}</span>
+        </div>
+        <div>
+          <span class="tarjeta-cliente__dt">CUOTA SEMANAL</span>
+          <span class="tarjeta-cliente__dd tarjeta-cliente__dd--acento">S/ {{ r.cuotaBase | number: '1.0-0' }}</span>
+        </div>
+        <div>
+          <span class="tarjeta-cliente__dt">PLAZO</span>
+          <span class="tarjeta-cliente__dd">{{ form.controls.numeroPeriodos.value }} semanas</span>
+        </div>
+        <div>
+          <span class="tarjeta-cliente__dt">TCEA REFERENCIAL</span>
+          <span class="tarjeta-cliente__dd">{{ r.tcea * 100 | number: '1.0-1' }}%</span>
+        </div>
+      </div>
+
+      <p class="tarjeta-cliente__nota">
+        {{ form.controls.numeroPeriodos.value }} cuotas semanales de S/ {{ r.cuotaBase | number: '1.2-2' }}. TCEA referencial
+        {{ r.tcea * 100 | number: '1.2-2' }}%. Cotización sujeta a evaluación crediticia.
+      </p>
+    </div>
+
+    <a [href]="whatsappHref()" target="_blank" rel="noopener" class="boton-whatsapp">
+      <span class="material-symbols-rounded">send</span>
+      Enviar por WhatsApp
+    </a>
+  </section>
+
   <mt-card class="resultado">
     <div card-header class="calculadora-header">
-      <h2>Cotización</h2>
-      <p>Producto {{ r.codigoProducto }}</p>
+      <h2>Detalle técnico</h2>
+      <p>Producto {{ r.codigoProducto }} — para uso interno, no mostrar al cliente.</p>
     </div>
 
     @if (r.inicialAjustadaAutomaticamente) {

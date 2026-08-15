@@ -1,0 +1,16 @@
+<header class="mt-modal__header">
+  <h3>{{ title() }}</h3>
+  @if (showCloseButton()) {
+    <button type="button" class="mt-modal__close" aria-label="Cerrar" (click)="closeRequested.emit()">
+      <mt-icon name="close" [size]="18" />
+    </button>
+  }
+</header>
+
+<div class="mt-modal__body">
+  <ng-content />
+</div>
+
+<footer class="mt-modal__footer">
+  <ng-content select="[modal-footer]" />
+</footer>

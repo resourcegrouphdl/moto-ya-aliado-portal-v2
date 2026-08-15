@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { catchError, forkJoin, of } from 'rxjs';
 
 import { AlertComponent } from '../../../../shared/ui/alert/alert.component';
 import { BadgeComponent } from '../../../../shared/ui/badge/badge.component';
@@ -30,6 +31,16 @@ const SOAT_OPTIONS: SelectOption<boolean>[] = [
   { label: 'Sí, incluir SOAT (S/ 750)', value: true },
   { label: 'No, el cliente ya lo tiene', value: false }
 ];
+
+/**
+ * Vista comercial (2026-08-14) — a pedido del usuario: el resultado técnico de abajo (TCEA, cronograma cuota por
+ * cuota) sirve al vendedor pero abruma al cliente en el primer contacto. Estos 3 plazos son solo una selección
+ * representativa dentro del rango real del producto (26-52 semanas, ver `productoInfo()`) para armar una
+ * comparación simple tipo "compara planes" — no son plazos fijos del producto, son los 3 que el usuario pidió
+ * mostrar. Si el rango vigente cambiara y alguno quedara fuera, `cotizarPlanesComparacion` lo descarta en
+ * silencio (ver `catchError`) en vez de romper toda la comparación.
+ */
+const SEMANAS_COMPARACION = [32, 42, 52] as const;
 
 /**
  * Cotiza un crédito real contra BC-07 (MotorAmortizacionPort vía
@@ -82,11 +93,16 @@ export class CalculadoraComponent {
   protected readonly cargandoProductoInfo = signal(true);
 
   protected readonly form = this.fb.nonNullable.group({
+    modeloMoto: [''],
     precioVehiculo: [0, [Validators.required, Validators.min(1)]],
     inicialIngresada: [0],
     numeroPeriodos: [40, Validators.required],
     incluirSoat: [false, Validators.required]
   });
+
+  // Vista comercial — cards de "compara planes" + tarjeta para el cliente (ver SEMANAS_COMPARACION arriba).
+  protected readonly cargandoPlanes = signal(false);
+  protected readonly planesComparacion = signal<{ semanas: number; cuotaSemanal: number }[]>([]);
 
   private readonly precioVehiculo = toSignal(this.form.controls.precioVehiculo.valueChanges, { initialValue: 0 });
   private readonly inicialIngresada = toSignal(this.form.controls.inicialIngresada.valueChanges, { initialValue: 0 });
@@ -143,26 +159,77 @@ export class CalculadoraComponent {
     this.cotizando.set(true);
     this.error.set(null);
     this.resultado.set(null);
+    this.planesComparacion.set([]);
 
-    this.api
-      .cotizar({
-        codigoProducto: CODIGO_PRODUCTO_CREDITO_DEFAULT,
-        precioVehiculo: Number(datos.precioVehiculo),
-        inicialIngresada: Number(datos.inicialIngresada) > 0 ? Number(datos.inicialIngresada) : null,
-        numeroPeriodos: Number(datos.numeroPeriodos),
-        incluirSoat: datos.incluirSoat,
-        fechaDesembolso: null
-      })
-      .subscribe({
-        next: (cotizacion) => {
-          this.resultado.set(cotizacion);
-          this.cotizando.set(false);
-        },
-        error: (err: HttpErrorResponse) => {
-          this.cotizando.set(false);
-          const detalle = typeof err.error === 'object' && err.error && 'detail' in err.error ? String(err.error.detail) : null;
-          this.error.set(detalle ?? 'No se pudo cotizar. Verifica los datos e intenta nuevamente.');
-        }
-      });
+    const base = {
+      codigoProducto: CODIGO_PRODUCTO_CREDITO_DEFAULT,
+      precioVehiculo: Number(datos.precioVehiculo),
+      inicialIngresada: Number(datos.inicialIngresada) > 0 ? Number(datos.inicialIngresada) : null,
+      incluirSoat: datos.incluirSoat,
+      fechaDesembolso: null
+    };
+
+    this.api.cotizar({ ...base, numeroPeriodos: Number(datos.numeroPeriodos) }).subscribe({
+      next: (cotizacion) => {
+        this.resultado.set(cotizacion);
+        this.cotizando.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.cotizando.set(false);
+        const detalle = typeof err.error === 'object' && err.error && 'detail' in err.error ? String(err.error.detail) : null;
+        this.error.set(detalle ?? 'No se pudo cotizar. Verifica los datos e intenta nuevamente.');
+      }
+    });
+
+    this.cargandoPlanes.set(true);
+    forkJoin(
+      SEMANAS_COMPARACION.map((semanas) =>
+        this.api.cotizar({ ...base, numeroPeriodos: semanas }).pipe(
+          // Un plazo puntual fuera de rango para este precio no debe tumbar toda la comparación — se omite en silencio.
+          catchError(() => of(null))
+        )
+      )
+    ).subscribe((resultados) => {
+      this.cargandoPlanes.set(false);
+      this.planesComparacion.set(
+        resultados
+          .map((r, i) => (r ? { semanas: SEMANAS_COMPARACION[i] as number, cuotaSemanal: r.cuotaBase } : null))
+          .filter((p): p is { semanas: number; cuotaSemanal: number } => p !== null)
+      );
+    });
   }
+
+  /** El plan con menor cuota semanal (naturalmente, el de mayor plazo) es el que se destaca — igual criterio que la referencia comercial. */
+  protected readonly planDestacadoSemanas = computed(() => {
+    const planes = this.planesComparacion();
+    if (planes.length === 0) return null;
+    return planes.reduce((mejor, p) => (p.cuotaSemanal < mejor.cuotaSemanal ? p : mejor)).semanas;
+  });
+
+  /**
+   * Link directo a `wa.me` (sin número fijo — la cuenta de WhatsApp Business del vendedor/tienda ya es quien envía)
+   * con el resumen comercial prellenado. Se usa como `[href]` de un `<a target="_blank">` en vez de
+   * `window.open()` en un handler de click a propósito: un `<a>` con click real de usuario nunca lo bloquea el
+   * navegador, mientras que `window.open()` programático sí puede ser bloqueado como popup en algunos navegadores
+   * (confirmado en QA). Nunca se envía solo — siempre requiere que el vendedor elija el chat y confirme el envío
+   * dentro de WhatsApp.
+   */
+  protected readonly whatsappHref = computed(() => {
+    const r = this.resultado();
+    if (!r) return null;
+    const modelo = this.form.controls.modeloMoto.value.trim() || 'tu moto';
+    const semanas = this.form.controls.numeroPeriodos.value;
+    const lineas = [
+      `🏍️ *Moto Ya* — cotización para ${modelo}`,
+      '',
+      `💰 Precio: S/ ${r.precioVehiculo.toFixed(2)}`,
+      `📝 Inicial: S/ ${r.inicialAplicada.toFixed(2)}`,
+      `📅 Plazo: ${semanas} semanas`,
+      `✅ Cuota semanal: S/ ${r.cuotaBase.toFixed(2)}`,
+      '',
+      `TCEA referencial ${(r.tcea * 100).toFixed(2)}%. Cotización sujeta a evaluación crediticia.`
+    ];
+    const texto = encodeURIComponent(lineas.join('\n'));
+    return `https://wa.me/?text=${texto}`;
+  });
 }
