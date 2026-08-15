@@ -72,6 +72,20 @@ textarea,
   @include motion.motion-safe {
     animation: motoya-fade-in var(--duration-base) var(--ease-out-soft);
   }
+
+  &--closing {
+    @include motion.motion-safe {
+      animation: motoya-fade-in var(--duration-base) var(--ease-in-soft) reverse both;
+    }
+  }
+}
+
+// El "card" visual (mt-modal-shell) entra con motion.enter-up en su propio
+// :host — pero eso vive en un stylesheet con encapsulación, así que la salida
+// (disparada por ModalService.close(), ver modal.service.ts) tiene que
+// sobreescribirse desde afuera, por tag, contra el pane que crea el overlay.
+.mt-modal-panel--closing mt-modal-shell {
+  @include motion.exit-up(var(--duration-base));
 }
 
 .mt-overlay-backdrop-transparent {

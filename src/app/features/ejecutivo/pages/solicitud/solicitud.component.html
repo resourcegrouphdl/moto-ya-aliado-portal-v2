@@ -78,6 +78,12 @@
           hint="Autocompleta nombres y apellidos al escribir el documento"
         />
 
+        @if (zonaBloqueaAvanceTitular()) {
+          <mt-alert class="span-12" variant="error" title="No es posible continuar">
+            {{ preCalificacionTitular()?.mensaje }}
+          </mt-alert>
+        }
+
         <mt-input class="span-6" label="Nombres" formControlName="nombres" />
         <mt-input class="span-6" label="Apellido paterno" formControlName="apellidoPaterno" />
         <mt-input class="span-6" label="Apellido materno" formControlName="apellidoMaterno" />
@@ -115,7 +121,7 @@
 
       <div card-footer class="step-actions">
         <span class="step-actions__hint">Paso {{ pasoIndex() + 1 }} de {{ pasos.length }}</span>
-        <mt-button (click)="continuarTitular()" [loading]="guardando()">Continuar</mt-button>
+        <mt-button (click)="continuarTitular()" [loading]="guardando()" [disabled]="zonaBloqueaAvanceTitular()">Continuar</mt-button>
       </div>
     </mt-card>
   }
@@ -204,6 +210,12 @@
           hint="Autocompleta nombres y apellidos al escribir el documento"
         />
 
+        @if (zonaBloqueaAvanceAvalista()) {
+          <mt-alert class="span-12" variant="error" title="No es posible continuar con este aval">
+            {{ preCalificacionAvalista()?.mensaje }}
+          </mt-alert>
+        }
+
         <mt-input class="span-4" label="Nombres" formControlName="nombres" />
         <mt-input class="span-4" label="Apellido paterno" formControlName="apellidoPaterno" />
         <mt-input class="span-4" label="Apellido materno" formControlName="apellidoMaterno" />
@@ -241,7 +253,7 @@
 
       <div card-footer class="step-actions">
         <span class="step-actions__hint">Paso {{ pasoIndex() + 1 }} de {{ pasos.length }}</span>
-        <mt-button (click)="continuarAvalista()" [loading]="guardando()">Continuar</mt-button>
+        <mt-button (click)="continuarAvalista()" [loading]="guardando()" [disabled]="zonaBloqueaAvanceAvalista()">Continuar</mt-button>
       </div>
     </mt-card>
   }
