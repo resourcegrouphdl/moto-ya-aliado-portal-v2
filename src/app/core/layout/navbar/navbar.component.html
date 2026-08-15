@@ -1,3 +1,13 @@
+<button
+  type="button"
+  class="mt-navbar__menu-btn"
+  (click)="mobileNav.toggle()"
+  [attr.aria-expanded]="mobileNav.open()"
+  aria-label="Abrir menú"
+>
+  <mt-icon name="menu" [size]="22" />
+</button>
+
 <div class="mt-navbar__spacer"></div>
 
 <div class="mt-navbar__user">

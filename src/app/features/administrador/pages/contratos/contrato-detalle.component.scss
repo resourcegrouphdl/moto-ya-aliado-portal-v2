@@ -70,6 +70,15 @@
   list-style: none;
   margin: 0 0 var(--space-6);
   padding: 0;
+
+  // Los 3 pasos + conectores no caben en un viewport angosto (labels con
+  // white-space:nowrap, conectores con min-width) — se vuelve scrolleable en
+  // vez de desbordar el layout completo.
+  @media (max-width: 480px) {
+    overflow-x: auto;
+    padding-bottom: var(--space-2);
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 .contrato-stepper__step {

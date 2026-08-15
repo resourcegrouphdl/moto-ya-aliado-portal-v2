@@ -14,6 +14,7 @@
           class="mt-sidebar__item"
           [routerLink]="item.route"
           routerLinkActive="mt-sidebar__item--active"
+          (click)="mobileNav.close()"
         >
           <mt-icon [name]="item.icon" [size]="20" />
           <span>{{ item.label }}</span>

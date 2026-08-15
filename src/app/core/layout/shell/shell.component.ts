@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { MobileNavService } from '../mobile-nav.service';
 import { NavbarComponent } from '../navbar/navbar.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 
@@ -11,4 +12,6 @@ import { SidebarComponent } from '../sidebar/sidebar.component';
   styleUrl: './shell.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ShellComponent {}
+export class ShellComponent {
+  protected readonly mobileNav = inject(MobileNavService);
+}
