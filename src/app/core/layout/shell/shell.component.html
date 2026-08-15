@@ -1,5 +1,9 @@
 <mt-sidebar />
 
+@if (mobileNav.open()) {
+  <div class="mt-shell__backdrop" (click)="mobileNav.close()"></div>
+}
+
 <div class="mt-shell__main">
   <mt-navbar />
   <main class="mt-shell__content">

@@ -216,6 +216,12 @@
     margin-bottom: var(--space-4);
     border-bottom: 1px solid color-mix(in srgb, white 12%, transparent);
 
+    // Misma regla que .planes-grid arriba — valores como "S/ 1,234.56" se
+    // apretaban contra una etiqueta angosta en 2 columnas fijas.
+    @media (max-width: 640px) {
+      grid-template-columns: 1fr;
+    }
+
     > div {
       display: flex;
       flex-direction: column;
