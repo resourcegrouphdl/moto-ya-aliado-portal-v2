@@ -92,6 +92,17 @@ export class OriginacionApiService {
     return this.http.post<ReferenciaResponse>(`${this.base}/solicitudes/${solicitudId}/referencias`, datos);
   }
 
+  // --- Verificación de correo del wizard de venta (2026-08-16) — ver VerificacionEmailController en motoya-api.
+  // Enforcement es solo de frontend: mt-verificacion-email es quien decide cuándo llamar a estos 2 métodos.
+
+  enviarCodigoVerificacionEmail(email: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/verificacion-email/enviar-codigo`, { email });
+  }
+
+  confirmarCodigoVerificacionEmail(email: string, codigo: string): Observable<{ verificado: boolean }> {
+    return this.http.post<{ verificado: boolean }>(`${this.base}/verificacion-email/confirmar-codigo`, { email, codigo });
+  }
+
   /** Solicitudes creadas por el usuario logueado — nunca se manda un id de vendedor, lo resuelve el backend desde la sesión. */
   listarMisClientes(): Observable<SolicitudResumen[]> {
     return this.http.get<SolicitudResumen[]>(`${this.base}/solicitudes/mis-clientes`);

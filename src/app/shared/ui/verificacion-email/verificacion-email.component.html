@@ -1,0 +1,42 @@
+@switch (estado()) {
+  @case ('inicial') {
+    <mt-button type="button" variant="secondary" size="sm" (click)="enviarCodigo()">
+      <mt-icon name="mail" [size]="16" />
+      Verificar correo
+    </mt-button>
+  }
+  @case ('enviando') {
+    <mt-button type="button" variant="secondary" size="sm" [loading]="true" [disabled]="true">Enviando código…</mt-button>
+  }
+  @case ('pendiente') {
+    <div class="verificacion-email__codigo">
+      <input
+        class="verificacion-email__input"
+        type="text"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        maxlength="6"
+        placeholder="Código de 6 dígitos"
+        [value]="codigo()"
+        (input)="onCodigoInput($any($event.target).value)"
+      />
+      <mt-button type="button" size="sm" [disabled]="codigo().length !== 6" (click)="confirmarCodigo()">Confirmar</mt-button>
+      <button type="button" class="verificacion-email__reenviar" [disabled]="cooldown() > 0" (click)="enviarCodigo()">
+        {{ cooldown() > 0 ? 'Reenviar en ' + cooldown() + 's' : 'Reenviar código' }}
+      </button>
+    </div>
+    <p class="verificacion-email__hint">Enviamos un código a {{ email() }}. Vence en 15 minutos.</p>
+  }
+  @case ('verificando') {
+    <mt-button type="button" size="sm" [loading]="true" [disabled]="true">Verificando…</mt-button>
+  }
+  @case ('verificado') {
+    <span class="verificacion-email__ok">
+      <mt-icon name="check_circle" [size]="16" />
+      Correo verificado
+    </span>
+  }
+}
+@if (errorMensaje()) {
+  <p class="verificacion-email__error">{{ errorMensaje() }}</p>
+}
