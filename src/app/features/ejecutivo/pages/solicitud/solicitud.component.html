@@ -90,6 +90,9 @@
         <mt-input class="span-6" label="Teléfono" formControlName="telefono" type="tel" icon="call" />
 
         <mt-input class="span-12" label="Correo electrónico (opcional)" formControlName="email" type="email" icon="mail" />
+        @if (emailTitularTexto().trim() && formTitular.controls.email.valid) {
+          <mt-verificacion-email class="span-12" [email]="emailTitularTexto()" (verificadoChange)="correoVerificado.set($event)" />
+        }
 
         <mt-date-input class="span-3" label="Fecha de nacimiento" formControlName="fechaNacimiento" />
         <mt-select class="span-3" label="Nacionalidad" formControlName="nacionalidad" [options]="nacionalidades" />
@@ -120,8 +123,19 @@
       />
 
       <div card-footer class="step-actions">
-        <span class="step-actions__hint">Paso {{ pasoIndex() + 1 }} de {{ pasos.length }}</span>
-        <mt-button (click)="continuarTitular()" [loading]="guardando()" [disabled]="zonaBloqueaAvanceTitular()">Continuar</mt-button>
+        <span class="step-actions__hint">
+          @if (correoTitularPendienteDeVerificar()) {
+            Verifica el correo del titular para continuar
+          } @else {
+            Paso {{ pasoIndex() + 1 }} de {{ pasos.length }}
+          }
+        </span>
+        <mt-button
+          (click)="continuarTitular()"
+          [loading]="guardando()"
+          [disabled]="zonaBloqueaAvanceTitular() || correoTitularPendienteDeVerificar()"
+          >Continuar</mt-button
+        >
       </div>
     </mt-card>
   }

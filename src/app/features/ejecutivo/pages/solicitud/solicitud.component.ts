@@ -19,6 +19,7 @@ import { IconComponent } from '../../../../shared/ui/icon/icon.component';
 import { InputComponent } from '../../../../shared/ui/input/input.component';
 import { DateInputComponent } from '../../../../shared/ui/date-input/date-input.component';
 import { SelectComponent, SelectOption } from '../../../../shared/ui/select/select.component';
+import { VerificacionEmailComponent } from '../../../../shared/ui/verificacion-email/verificacion-email.component';
 import { ModalService } from '../../../../shared/ui/modal/modal.service';
 import { PreCalificacionAlertDialogComponent } from '../../../../shared/ui/modal/pre-calificacion-alert-dialog.component';
 import { OriginacionApiService } from '../../../../core/originacion/originacion-api.service';
@@ -166,7 +167,8 @@ const RELACIONES: SelectOption<string>[] = [
     IconComponent,
     InputComponent,
     DateInputComponent,
-    SelectComponent
+    SelectComponent,
+    VerificacionEmailComponent
   ],
   templateUrl: './solicitud.component.html',
   styleUrl: './solicitud.component.scss',
@@ -290,6 +292,14 @@ export class SolicitudComponent {
   // en cada tecla porque el evento nace dentro de mt-input, no en esta vista.
   protected readonly direccionTitularTexto = toSignal(this.formTitular.controls.direccion.valueChanges, { initialValue: '' });
   protected readonly direccionAvalistaTexto = toSignal(this.formAvalista.controls.direccion.valueChanges, { initialValue: '' });
+
+  // Verificación de correo (2026-08-16, solo titular — ver docblock de la clase). Enforcement de frontend: si el
+  // vendedor tecleó un correo, correoVerificado debe quedar true antes de poder continuar (ver continuarTitular()).
+  protected readonly emailTitularTexto = toSignal(this.formTitular.controls.email.valueChanges, { initialValue: '' });
+  protected readonly correoVerificado = signal(false);
+  protected readonly correoTitularPendienteDeVerificar = computed(
+    () => !!this.emailTitularTexto()?.trim() && !this.correoVerificado()
+  );
 
   // Edad en vivo: se recalcula apenas el vendedor elige la fecha, sin esperar
   // el round-trip al backend (que también la calcula, para cuando se recarga
@@ -700,6 +710,11 @@ export class SolicitudComponent {
     if (this.zonaBloqueaAvanceTitular()) {
       return;
     }
+    // Verificación de correo (2026-08-16) — solo bloquea si el vendedor tecleó un correo (sigue opcional). Mismo
+    // patrón defensivo que el botón, que ya queda [disabled] en el template.
+    if (this.emailTitularTexto()?.trim() && !this.correoVerificado()) {
+      return;
+    }
     const datos = this.formTitular.getRawValue();
     this.guardando.set(true);
     this.error.set(null);
@@ -1030,6 +1045,7 @@ export class SolicitudComponent {
     this.error.set(null);
     this.historialTitular.set([]);
     this.relacionCircularDetectada.set(false);
+    this.correoVerificado.set(false);
     this.errorDniTitular.set(undefined);
     this.errorDniAvalista.set(undefined);
     this.formTitular.reset({ tipoDocumento: 'DNI', latitud: null, longitud: null });
