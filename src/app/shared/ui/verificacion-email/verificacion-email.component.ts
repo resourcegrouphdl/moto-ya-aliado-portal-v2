@@ -16,10 +16,15 @@ type Estado = 'inicial' | 'enviando' | 'pendiente' | 'verificando' | 'verificado
  * componente solo administra el flujo de envío/confirmación, no conoce el
  * resto del formulario.
  *
- * <p>El estado se invalida solo si `email` cambia respecto al valor que
- * quedó verificado (ver el `effect` del constructor) — así el vendedor no
- * puede editar el correo después de verificarlo y seguir con el check verde
- * de un correo distinto.
+ * <p>El estado se invalida si `email` cambia respecto al correo real al que
+ * se le envió/verificó el código vigente (`emailObjetivo`, ver el `effect`
+ * del constructor) — así el vendedor no puede editar el correo a mitad de
+ * camino (código ya pedido pero aún sin confirmar) y terminar confirmando
+ * contra un correo distinto al que en verdad recibió el código, ni seguir
+ * con el check verde tras editar un correo ya verificado. `confirmarCodigo()`
+ * usa siempre `emailObjetivo`, nunca relee `email()` — es la única forma de
+ * garantizar que "a quién se le mandó" y "a quién se confirma" sean siempre
+ * el mismo valor aunque el input del formulario haya cambiado mientras tanto.
  */
 @Component({
   selector: 'mt-verificacion-email',
@@ -42,17 +47,21 @@ export class VerificacionEmailComponent {
   protected readonly errorMensaje = signal<string | null>(null);
   protected readonly cooldown = signal(0);
 
-  private emailVerificado: string | null = null;
+  /** Correo real al que se le envió/verificó el código vigente — ver docblock de la clase. */
+  private emailObjetivo: string | null = null;
   private cooldownTimer?: ReturnType<typeof setInterval>;
 
   constructor() {
     effect(() => {
-      const actual = this.email();
-      if (this.estado() === 'verificado' && actual !== this.emailVerificado) {
+      const actual = this.email()?.trim();
+      const estadoActual = this.estado();
+      if (estadoActual === 'inicial' || estadoActual === 'enviando') return;
+      if (actual !== this.emailObjetivo) {
+        const eraVerificado = estadoActual === 'verificado';
         this.estado.set('inicial');
-        this.emailVerificado = null;
+        this.emailObjetivo = null;
         this.codigo.set('');
-        this.verificadoChange.emit(false);
+        if (eraVerificado) this.verificadoChange.emit(false);
       }
     });
   }
@@ -64,11 +73,16 @@ export class VerificacionEmailComponent {
     this.errorMensaje.set(null);
     this.api.enviarCodigoVerificacionEmail(email).subscribe({
       next: () => {
+        // Si el vendedor ya editó el correo mientras la request estaba en vuelo, descartar esta respuesta —
+        // el efecto de arriba ya se encarga de volver a 'inicial' apenas email() deje de coincidir.
+        if (this.email()?.trim() !== email) return;
+        this.emailObjetivo = email;
         this.estado.set('pendiente');
         this.codigo.set('');
         this.iniciarCooldown();
       },
       error: (err: HttpErrorResponse) => {
+        if (this.email()?.trim() !== email) return;
         this.estado.set('inicial');
         this.setErrorMensaje(err);
       }
@@ -76,7 +90,9 @@ export class VerificacionEmailComponent {
   }
 
   protected confirmarCodigo(): void {
-    const email = this.email()?.trim();
+    // Nunca this.email() acá — el código se confirma contra el correo al que de verdad se le envió, no contra
+    // lo que haya en el input del formulario en este instante (ver docblock de la clase).
+    const email = this.emailObjetivo;
     const codigo = this.codigo();
     if (!email || codigo.length !== 6) return;
     this.estado.set('verificando');
@@ -84,7 +100,6 @@ export class VerificacionEmailComponent {
     this.api.confirmarCodigoVerificacionEmail(email, codigo).subscribe({
       next: () => {
         this.estado.set('verificado');
-        this.emailVerificado = email;
         this.verificadoChange.emit(true);
       },
       error: (err: HttpErrorResponse) => {
