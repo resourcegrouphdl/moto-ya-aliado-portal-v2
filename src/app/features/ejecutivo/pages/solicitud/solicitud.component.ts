@@ -321,15 +321,19 @@ export class SolicitudComponent {
     return estadoCivil ? ESTADO_CIVIL_LABEL[estadoCivil] : '—';
   }
 
+  /**
+   * `new Date(fechaIso)` interpreta "YYYY-MM-DD" (LocalDate, sin hora) como medianoche UTC -- en Perú
+   * (UTC-5) eso corresponde al día anterior en hora local, así que `getDate()`/`getMonth()` podían leer
+   * un día menos. Justo en el borde del cumpleaños eso hacía contar un año de más o de menos. Se extraen
+   * año/mes/día directo del string, sin pasar por Date/UTC.
+   */
   private edadDe(fechaIso: string): number | null {
     if (!fechaIso) return null;
-    const nacimiento = new Date(fechaIso);
-    if (Number.isNaN(nacimiento.getTime())) return null;
+    const [anioNac, mesNac, diaNac] = fechaIso.split('-').map(Number);
+    if (!anioNac || !mesNac || !diaNac) return null;
     const hoy = new Date();
-    let edad = hoy.getFullYear() - nacimiento.getFullYear();
-    const aunNoCumpleEsteAnio =
-      hoy.getMonth() < nacimiento.getMonth() ||
-      (hoy.getMonth() === nacimiento.getMonth() && hoy.getDate() < nacimiento.getDate());
+    let edad = hoy.getFullYear() - anioNac;
+    const aunNoCumpleEsteAnio = hoy.getMonth() + 1 < mesNac || (hoy.getMonth() + 1 === mesNac && hoy.getDate() < diaNac);
     if (aunNoCumpleEsteAnio) edad--;
     return edad;
   }
