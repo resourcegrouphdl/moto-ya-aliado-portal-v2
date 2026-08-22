@@ -553,9 +553,9 @@ export class SolicitudComponent {
         this.evaluandoPreCalificacionTitular.set(false);
         if (!resultado) return;
         this.preCalificacionTitular.set(resultado);
-        if (resultado.zona === 'AMARILLO' || resultado.zona === 'ROJO') {
-          this.mostrarAvisoPreCalificacion(resultado);
-        }
+        // Antes solo se avisaba AMARILLO/ROJO -- en VERDE el vendedor llenaba todo el formulario a ciegas, sin
+        // saber si el titular había pasado el filtro (pedido 2026-08-22). Ahora se avisan las 3 zonas.
+        this.mostrarAvisoPreCalificacion(resultado);
       });
   }
 
@@ -580,9 +580,7 @@ export class SolicitudComponent {
         this.evaluandoPreCalificacionAvalista.set(false);
         if (!resultado) return;
         this.preCalificacionAvalista.set(resultado);
-        if (resultado.zona === 'AMARILLO' || resultado.zona === 'ROJO') {
-          this.mostrarAvisoPreCalificacion(resultado);
-        }
+        this.mostrarAvisoPreCalificacion(resultado);
       });
   }
 
@@ -599,12 +597,14 @@ export class SolicitudComponent {
   /**
    * ROJO: informativo, sin botón de continuar (el ejecutivo no puede avanzar — ver zonaBloqueaAvanceTitular()).
    * AMARILLO: si el ejecutivo elige "Continuar bajo riesgo", queda registrado en el backend (auditado) — nunca se
-   * asume silenciosamente, es una decisión explícita del ejecutivo cada vez.
+   * asume silenciosamente, es una decisión explícita del ejecutivo cada vez. VERDE (2026-08-22): antes no se
+   * avisaba nada y el ejecutivo llenaba todo el formulario sin saber si el cliente había pasado el filtro —
+   * ahora también se confirma explícitamente, mismo modal, sin decisión que tomar (solo "Entendido").
    */
   private mostrarAvisoPreCalificacion(resultado: ResultadoPreCalificacion): void {
     this.modalService
       .open(PreCalificacionAlertDialogComponent, {
-        data: { zona: resultado.zona as 'AMARILLO' | 'ROJO', mensaje: resultado.mensaje ?? '' }
+        data: { zona: resultado.zona, mensaje: resultado.mensaje }
       })
       .closed.subscribe((continuar) => {
         if (resultado.zona === 'AMARILLO' && continuar === true) {

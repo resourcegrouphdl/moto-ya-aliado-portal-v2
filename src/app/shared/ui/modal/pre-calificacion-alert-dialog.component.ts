@@ -5,9 +5,13 @@ import { IconComponent } from '../icon/icon.component';
 import { ModalShellComponent } from './modal-shell.component';
 
 export interface PreCalificacionAlertDialogData {
-  zona: 'AMARILLO' | 'ROJO';
-  mensaje: string;
+  zona: 'VERDE' | 'AMARILLO' | 'ROJO';
+  /** Null en VERDE (el backend nunca resuelve texto para ese caso, ver ResultadoPreCalificacion) -- el componente pone su propio mensaje genérico. */
+  mensaje: string | null;
 }
+
+const MENSAJE_VERDE =
+  'No se detectaron señales de riesgo en las verificaciones automáticas (calificación SBS, listas AML/protestos, score crediticio). Puedes continuar con la solicitud.';
 
 /**
  * Aviso de pre-calificación temprana (pedido 2026-08-14: consultar Equifax al obtener el DNI, antes de que el
@@ -17,16 +21,18 @@ export interface PreCalificacionAlertDialogData {
  *
  * <p>ROJO: solo "Entendido" — no hay forma de continuar, coherente con que el negocio pidió bloqueo duro sin
  * excepción para ese semáforo ("nuestro primer filtro"). AMARILLO: "Cancelar" / "Continuar bajo riesgo" — el
- * `DialogRef<boolean>` resuelve `true` solo si el vendedor elige continuar explícitamente.
+ * `DialogRef<boolean>` resuelve `true` solo si el vendedor elige continuar explícitamente. VERDE (2026-08-22,
+ * antes no mostraba nada -- el vendedor llenaba todo el formulario sin saber si el cliente había pasado el
+ * filtro o no): mismo botón único que ROJO, mensaje genérico fijo (nunca llega `mensaje` del backend en este caso).
  */
 @Component({
   standalone: true,
   imports: [ModalShellComponent, ButtonComponent, IconComponent],
   template: `
     <mt-modal-shell [title]="titulo" [showCloseButton]="data.zona === 'AMARILLO'" (closeRequested)="cancelar()">
-      <div class="mt-precal__aviso" [class.mt-precal__aviso--rojo]="data.zona === 'ROJO'">
-        <mt-icon [name]="data.zona === 'ROJO' ? 'block' : 'warning'" [size]="28" />
-        <p>{{ data.mensaje }}</p>
+      <div class="mt-precal__aviso" [class.mt-precal__aviso--rojo]="data.zona === 'ROJO'" [class.mt-precal__aviso--verde]="data.zona === 'VERDE'">
+        <mt-icon [name]="icono" [size]="28" />
+        <p>{{ mensaje }}</p>
       </div>
 
       <div modal-footer>
@@ -57,6 +63,10 @@ export interface PreCalificacionAlertDialogData {
       .mt-precal__aviso--rojo {
         color: var(--color-error);
       }
+
+      .mt-precal__aviso--verde {
+        color: var(--color-success);
+      }
     `
   ],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -65,7 +75,13 @@ export class PreCalificacionAlertDialogComponent {
   protected readonly data = inject<PreCalificacionAlertDialogData>(DIALOG_DATA);
   private readonly dialogRef = inject(DialogRef<boolean>);
 
-  protected readonly titulo = this.data.zona === 'ROJO' ? 'No es posible continuar' : 'Antes de continuar';
+  protected readonly titulo = this.data.zona === 'ROJO' ? 'No es posible continuar'
+    : this.data.zona === 'VERDE' ? 'Cliente apto para evaluación'
+    : 'Antes de continuar';
+
+  protected readonly icono = this.data.zona === 'ROJO' ? 'block' : this.data.zona === 'VERDE' ? 'check_circle' : 'warning';
+
+  protected readonly mensaje = this.data.mensaje ?? MENSAJE_VERDE;
 
   continuar(): void {
     this.dialogRef.close(true);
