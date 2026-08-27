@@ -83,6 +83,11 @@
             {{ preCalificacionTitular()?.mensaje }}
           </mt-alert>
         }
+        @if (errorPreCalificacionTitular()) {
+          <mt-alert class="span-12" variant="warning" title="No se pudo verificar con Equifax">
+            {{ errorPreCalificacionTitular() }}
+          </mt-alert>
+        }
 
         <mt-input class="span-6" label="Nombres" formControlName="nombres" />
         <mt-input class="span-6" label="Apellido paterno" formControlName="apellidoPaterno" />
@@ -227,6 +232,11 @@
         @if (zonaBloqueaAvanceAvalista()) {
           <mt-alert class="span-12" variant="error" title="No es posible continuar con este aval">
             {{ preCalificacionAvalista()?.mensaje }}
+          </mt-alert>
+        }
+        @if (errorPreCalificacionAvalista()) {
+          <mt-alert class="span-12" variant="warning" title="No se pudo verificar con Equifax">
+            {{ errorPreCalificacionAvalista() }}
           </mt-alert>
         }
 

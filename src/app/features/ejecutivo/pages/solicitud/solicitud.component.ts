@@ -2,8 +2,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { catchError, debounceTime, distinctUntilChanged, filter, forkJoin, map, of, switchMap, tap, throwError } from 'rxjs';
+import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Observable, catchError, debounceTime, distinctUntilChanged, filter, forkJoin, map, of, switchMap, tap, throwError } from 'rxjs';
 
 import { AlertComponent } from '../../../../shared/ui/alert/alert.component';
 import { BadgeComponent } from '../../../../shared/ui/badge/badge.component';
@@ -27,6 +27,7 @@ import { PreCalificacionApiService } from '../../../../core/riesgo/precalificaci
 import { ResultadoPreCalificacion } from '../../../../core/riesgo/precalificacion.models';
 import {
   ClienteResponse,
+  ConsultaDniResponse,
   DOCUMENTOS_AVALISTA,
   DOCUMENTOS_TITULAR,
   DocumentoSolicitudResponse,
@@ -247,6 +248,13 @@ export class SolicitudComponent {
   protected readonly evaluandoPreCalificacionAvalista = signal(false);
   protected readonly zonaBloqueaAvanceAvalista = computed(() => this.preCalificacionAvalista()?.zona === 'ROJO');
 
+  // 2026-08-26: antes, si Equifax fallaba, el catchError descartaba el error silenciosamente (of(null)) y no
+  // había NINGÚN aviso — el filtro de riesgo desaparecía sin que el vendedor lo notara. Ahora se muestra un
+  // aviso discreto (no bloquea, solo informa) para que la falla de la integración nunca sea indistinguible de
+  // "sin riesgo".
+  protected readonly errorPreCalificacionTitular = signal<string | undefined>(undefined);
+  protected readonly errorPreCalificacionAvalista = signal<string | undefined>(undefined);
+
   protected readonly formTitular = this.fb.nonNullable.group({
     tipoDocumento: ['DNI' as TipoDocumentoIdentidad, Validators.required],
     numeroDocumento: ['', Validators.required],
@@ -364,10 +372,8 @@ export class SolicitudComponent {
   protected readonly puedeContinuarReferencias = computed(() => this.referencias().length >= 2);
 
   constructor() {
-    this.configurarLookupTitular();
-    this.configurarLookupAvalista();
-    this.configurarPreCalificacionTitular();
-    this.configurarPreCalificacionAvalista();
+    this.configurarDocumentoTitular();
+    this.configurarDocumentoAvalista();
 
     const idExistente = this.route.snapshot.paramMap.get('id');
     if (idExistente) {
@@ -483,75 +489,73 @@ export class SolicitudComponent {
   }
 
   /**
-   * Autocompleta nombres/apellidos vía json.pe (DNI o CEE, según
-   * tipoDocumento) al escribir el número de documento — evita errores de
-   * tipeo. Nunca bloquea: si json.pe no responde o no encuentra el
-   * documento, el ejecutivo sigue pudiendo tipear todo a mano.
+   * Autocompleta nombres/apellidos vía json.pe (DNI o CEE) al escribir el número de documento — evita errores
+   * de tipeo. Nunca bloquea: si json.pe no responde o no encuentra el documento, el ejecutivo sigue pudiendo
+   * tipear todo a mano.
+   *
+   * <p>2026-08-26: antes, lookup y pre-calificación Equifax corrían en pipes independientes sobre el mismo
+   * `valueChanges`, cada uno leyendo `tipoDocumento.value` por su cuenta — si el vendedor tipeaba el número sin
+   * cambiar el selector (que por defecto queda en 'DNI'), ambos fallaban igual, y la pre-calificación le
+   * mandaba a Equifax el código de documento equivocado (ver `codigoDocumentoEquifax()`). Ahora un solo pipe:
+   * auto-detecta el tipo por formato, busca con fallback al otro tipo si el elegido falla, y SOLO DESPUÉS de
+   * resolver el tipo real dispara la pre-calificación con ese tipo — nunca con el que estaba antes de tipear.
    */
-  private configurarLookupTitular(): void {
+  private configurarDocumentoTitular(): void {
     this.formTitular.controls.numeroDocumento.valueChanges
       .pipe(
         debounceTime(500),
         distinctUntilChanged(),
         filter((numero) => numero.trim().length >= 8),
-        tap(() => {
+        tap((numero) => {
           this.buscandoDniTitular.set(true);
           this.errorDniTitular.set(undefined);
+          this.preCalificacionTitular.set(null);
+          this.errorPreCalificacionTitular.set(undefined);
+          this.evaluandoPreCalificacionTitular.set(true);
+          this.autoDetectarTipoDocumento(this.formTitular.controls.tipoDocumento, numero);
         }),
-        switchMap((numero) => {
-          const tipo = this.formTitular.controls.tipoDocumento.value;
-          const lookup$ = tipo === 'DNI' ? this.api.consultarDni(numero) : this.api.consultarCee(numero);
-          return lookup$.pipe(
-            map((resultado) => ({ resultado, error: undefined as string | undefined })),
-            catchError((err: HttpErrorResponse) => of({ resultado: null, error: this.mensajeErrorLookup(err) }))
-          );
-        })
+        switchMap((numero) =>
+          this.buscarDocumentoConFallback(numero, this.formTitular.controls.tipoDocumento.value).pipe(map((r) => ({ numero, r })))
+        )
       )
-      .subscribe(({ resultado, error }) => {
+      .subscribe(({ numero, r }) => {
         this.buscandoDniTitular.set(false);
-        if (error) {
-          this.errorDniTitular.set(error);
-          return;
+        if ('error' in r) {
+          this.errorDniTitular.set(r.error);
+        } else {
+          this.formTitular.patchValue({
+            tipoDocumento: r.tipo,
+            nombres: r.datos.nombres,
+            apellidoPaterno: r.datos.apellidoPaterno,
+            apellidoMaterno: r.datos.apellidoMaterno
+          });
         }
-        if (!resultado) return;
-        this.formTitular.patchValue({
-          nombres: resultado.nombres,
-          apellidoPaterno: resultado.apellidoPaterno,
-          apellidoMaterno: resultado.apellidoMaterno
-        });
+        this.evaluarPreCalificacionTitular(numero);
       });
   }
 
   /**
-   * Pre-calificación temprana (2026-08-14) — al obtener el DNI del titular (mismo trigger que el lookup de
-   * json.pe arriba, debounce independiente sobre el mismo `valueChanges`), consulta Equifax y evalúa el semáforo
-   * ANTES de que el ejecutivo invierta tiempo en KYC completo (7+ documentos, avalista, referencias). Solo aplica
-   * al titular — el avalista no financia el vehículo, no tiene sentido pre-calificarlo con el mismo criterio (ver
-   * REGLAS_AVAL en el motor de riesgo real, que ya excluye capacidad de pago para el aval).
+   * Pre-calificación temprana (2026-08-14) — consulta Equifax y evalúa el semáforo ANTES de que el ejecutivo
+   * invierta tiempo en KYC completo (7+ documentos, avalista, referencias). Solo aplica al titular — el
+   * avalista no financia el vehículo, no tiene sentido pre-calificarlo con el mismo criterio (ver REGLAS_AVAL
+   * en el motor de riesgo real, que ya excluye capacidad de pago para el aval). Corre con el tipo de documento
+   * ya resuelto por configurarDocumentoTitular() (auto-detección + fallback), nunca con el valor previo del
+   * selector.
    *
-   * <p>Si Equifax falla o el módulo no está disponible, nunca bloquea — igual criterio que el lookup de json.pe:
-   * el ejecutivo sigue el flujo normal, sin ningún aviso (más seguro fallar "abierto" acá que trabar una venta por
-   * un problema de la integración, no del cliente).
+   * <p>2026-08-26: si Equifax falla, ya no queda en silencio total (antes: catchError -> null, sin ningún
+   * aviso, como si el cliente no tuviera riesgo) — se muestra un aviso discreto y NO bloquea, para que el
+   * ejecutivo sepa que el filtro no corrió esta vez.
    */
-  private configurarPreCalificacionTitular(): void {
-    this.formTitular.controls.numeroDocumento.valueChanges
-      .pipe(
-        debounceTime(500),
-        distinctUntilChanged(),
-        filter((numero) => numero.trim().length >= 8),
-        tap(() => {
-          this.preCalificacionTitular.set(null);
-          this.evaluandoPreCalificacionTitular.set(true);
-        }),
-        switchMap((numero) =>
-          this.preCalificacionApi
-            .evaluar(this.codigoDocumentoEquifax(this.formTitular.controls.tipoDocumento.value), numero, 'TITULAR')
-            .pipe(catchError(() => of(null)))
-        )
-      )
+  private evaluarPreCalificacionTitular(numero: string): void {
+    this.preCalificacionApi
+      .evaluar(this.codigoDocumentoEquifax(this.formTitular.controls.tipoDocumento.value), numero, 'TITULAR')
+      .pipe(catchError(() => of('error' as const)))
       .subscribe((resultado) => {
         this.evaluandoPreCalificacionTitular.set(false);
-        if (!resultado) return;
+        if (resultado === 'error') {
+          this.errorPreCalificacionTitular.set('No se pudo verificar con Equifax. Continúa bajo tu criterio y vuelve a intentarlo más tarde.');
+          return;
+        }
         this.preCalificacionTitular.set(resultado);
         // Antes solo se avisaba AMARILLO/ROJO -- en VERDE el vendedor llenaba todo el formulario a ciegas, sin
         // saber si el titular había pasado el filtro (pedido 2026-08-22). Ahora se avisan las 3 zonas.
@@ -559,29 +563,94 @@ export class SolicitudComponent {
       });
   }
 
-  /** Contraparte de configurarPreCalificacionTitular() para el aval — mismo patrón, mismo modal, mismo bloqueo en rojo. */
-  private configurarPreCalificacionAvalista(): void {
+  /** Contraparte de configurarDocumentoTitular() para el aval — mismo patrón, mismo modal, mismo bloqueo en rojo. */
+  private configurarDocumentoAvalista(): void {
     this.formAvalista.controls.numeroDocumento.valueChanges
       .pipe(
         debounceTime(500),
         distinctUntilChanged(),
         filter((numero) => numero.trim().length >= 8),
-        tap(() => {
+        tap((numero) => {
+          this.buscandoDniAvalista.set(true);
+          this.errorDniAvalista.set(undefined);
           this.preCalificacionAvalista.set(null);
+          this.errorPreCalificacionAvalista.set(undefined);
           this.evaluandoPreCalificacionAvalista.set(true);
+          this.autoDetectarTipoDocumento(this.formAvalista.controls.tipoDocumento, numero);
         }),
         switchMap((numero) =>
-          this.preCalificacionApi
-            .evaluar(this.codigoDocumentoEquifax(this.formAvalista.controls.tipoDocumento.value), numero, 'AVAL')
-            .pipe(catchError(() => of(null)))
+          this.buscarDocumentoConFallback(numero, this.formAvalista.controls.tipoDocumento.value).pipe(map((r) => ({ numero, r })))
         )
       )
+      .subscribe(({ numero, r }) => {
+        this.buscandoDniAvalista.set(false);
+        if ('error' in r) {
+          this.errorDniAvalista.set(r.error);
+        } else {
+          this.formAvalista.patchValue({
+            tipoDocumento: r.tipo,
+            nombres: r.datos.nombres,
+            apellidoPaterno: r.datos.apellidoPaterno,
+            apellidoMaterno: r.datos.apellidoMaterno
+          });
+        }
+        this.evaluarPreCalificacionAvalista(numero);
+      });
+  }
+
+  /** Contraparte de evaluarPreCalificacionTitular() para el aval. */
+  private evaluarPreCalificacionAvalista(numero: string): void {
+    this.preCalificacionApi
+      .evaluar(this.codigoDocumentoEquifax(this.formAvalista.controls.tipoDocumento.value), numero, 'AVAL')
+      .pipe(catchError(() => of('error' as const)))
       .subscribe((resultado) => {
         this.evaluandoPreCalificacionAvalista.set(false);
-        if (!resultado) return;
+        if (resultado === 'error') {
+          this.errorPreCalificacionAvalista.set('No se pudo verificar con Equifax. Continúa bajo tu criterio y vuelve a intentarlo más tarde.');
+          return;
+        }
         this.preCalificacionAvalista.set(resultado);
         this.mostrarAvisoPreCalificacion(resultado);
       });
+  }
+
+  /**
+   * Auto-detección del tipo de documento por formato (2026-08-26) — el ejecutivo a veces tipea el número sin
+   * cambiar antes el selector, que por defecto queda en 'DNI'. DNI peruano: exactamente 8 dígitos; cualquier
+   * otro formato se asume carné de extranjería. Solo corrige mientras el selector sigue "pristine" (no lo tocó
+   * a mano todavía) — si ya lo cambió explícitamente, se respeta su elección acá; buscarDocumentoConFallback()
+   * sigue corrigiendo después, con evidencia real del lookup, incluso si ya está dirty.
+   */
+  private autoDetectarTipoDocumento(control: FormControl<TipoDocumentoIdentidad>, numero: string): void {
+    if (control.dirty) return;
+    const detectado: TipoDocumentoIdentidad = /^\d{8}$/.test(numero.trim()) ? 'DNI' : 'CARNET_EXTRANJERIA';
+    if (control.value !== detectado) control.setValue(detectado);
+  }
+
+  /**
+   * Busca el documento con el tipo elegido/detectado y, si falla, reintenta UNA vez con el otro tipo antes de
+   * rendirse (2026-08-26) — ni el selector ni la auto-detección por formato son infalibles (hay carnés de
+   * extranjería de 8 dígitos), así que un error con el tipo elegido no siempre significa "no existe", puede
+   * significar "es del otro tipo". Si el reintento SÍ encuentra al cliente, el `tipo` devuelto ya es el
+   * correcto — quien llama corrige el selector con él (el lookup exitoso pesa más que cualquier selección
+   * anterior).
+   */
+  private buscarDocumentoConFallback(
+    numero: string,
+    tipoElegido: TipoDocumentoIdentidad
+  ): Observable<{ tipo: TipoDocumentoIdentidad; datos: ConsultaDniResponse } | { error: string }> {
+    const otroTipo: TipoDocumentoIdentidad = tipoElegido === 'DNI' ? 'CARNET_EXTRANJERIA' : 'DNI';
+    const consultar = (tipo: TipoDocumentoIdentidad) => (tipo === 'DNI' ? this.api.consultarDni(numero) : this.api.consultarCee(numero));
+
+    return consultar(tipoElegido).pipe(
+      map((datos) => ({ tipo: tipoElegido, datos })),
+      catchError((primerError: HttpErrorResponse) =>
+        consultar(otroTipo).pipe(
+          map((datos) => ({ tipo: otroTipo, datos })),
+          catchError(() => of({ error: this.mensajeErrorLookup(primerError) }))
+        )
+      )
+    );
   }
 
   /**
@@ -610,40 +679,6 @@ export class SolicitudComponent {
         if (resultado.zona === 'AMARILLO' && continuar === true) {
           this.preCalificacionApi.continuarBajoRiesgo(resultado.id).subscribe();
         }
-      });
-  }
-
-  private configurarLookupAvalista(): void {
-    this.formAvalista.controls.numeroDocumento.valueChanges
-      .pipe(
-        debounceTime(500),
-        distinctUntilChanged(),
-        filter((numero) => numero.trim().length >= 8),
-        tap(() => {
-          this.buscandoDniAvalista.set(true);
-          this.errorDniAvalista.set(undefined);
-        }),
-        switchMap((numero) => {
-          const tipo = this.formAvalista.controls.tipoDocumento.value;
-          const lookup$ = tipo === 'DNI' ? this.api.consultarDni(numero) : this.api.consultarCee(numero);
-          return lookup$.pipe(
-            map((resultado) => ({ resultado, error: undefined as string | undefined })),
-            catchError((err: HttpErrorResponse) => of({ resultado: null, error: this.mensajeErrorLookup(err) }))
-          );
-        })
-      )
-      .subscribe(({ resultado, error }) => {
-        this.buscandoDniAvalista.set(false);
-        if (error) {
-          this.errorDniAvalista.set(error);
-          return;
-        }
-        if (!resultado) return;
-        this.formAvalista.patchValue({
-          nombres: resultado.nombres,
-          apellidoPaterno: resultado.apellidoPaterno,
-          apellidoMaterno: resultado.apellidoMaterno
-        });
       });
   }
 
