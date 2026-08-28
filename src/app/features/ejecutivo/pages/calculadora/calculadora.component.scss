@@ -253,6 +253,21 @@
     color: color-mix(in srgb, white 80%, transparent);
   }
 
+  &__soat-tag {
+    align-self: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, white 8%, transparent);
+    color: var(--color-text-on-sidebar);
+
+    &--incluido {
+      background: color-mix(in srgb, var(--acento) 22%, transparent);
+      color: var(--acento-fuerte);
+    }
+  }
+
   &__cuota {
     display: flex;
     align-items: flex-end;

@@ -219,10 +219,11 @@ export class CalculadoraComponent {
     if (!r) return null;
     const modelo = this.form.controls.modeloMoto.value.trim() || 'tu moto';
     const semanas = this.form.controls.numeroPeriodos.value;
+    const soat = this.form.controls.incluirSoat.value ? 'incluye SOAT' : 'sin SOAT';
     const lineas = [
       `🏍️ *Moto Ya* — cotización para ${modelo}`,
       '',
-      `💰 Precio: S/ ${r.precioVehiculo.toFixed(2)}`,
+      `💰 Precio: S/ ${r.precioVehiculo.toFixed(2)} (${soat})`,
       `📝 Inicial: S/ ${r.inicialAplicada.toFixed(2)}`,
       `📅 Plazo: ${semanas} semanas`,
       `✅ Cuota semanal: S/ ${r.cuotaBase.toFixed(2)}`,

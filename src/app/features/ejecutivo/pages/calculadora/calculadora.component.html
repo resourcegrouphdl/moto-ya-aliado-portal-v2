@@ -111,6 +111,9 @@
         <div class="tarjeta-cliente__precio-row">
           <span class="tarjeta-cliente__precio-label">Precio de la moto</span>
           <span class="tarjeta-cliente__precio-valor">S/ {{ r.precioVehiculo | number: '1.0-0' }}</span>
+          <span class="tarjeta-cliente__soat-tag" [class.tarjeta-cliente__soat-tag--incluido]="form.controls.incluirSoat.value">
+            {{ form.controls.incluirSoat.value ? 'Incluye SOAT' : 'Sin SOAT' }}
+          </span>
         </div>
       </div>
 
