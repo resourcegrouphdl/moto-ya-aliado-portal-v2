@@ -227,7 +227,7 @@ export class CalculadoraComponent {
       `📅 Plazo: ${semanas} semanas`,
       `✅ Cuota semanal: S/ ${r.cuotaBase.toFixed(2)}`,
       '',
-      `TCEA referencial ${(r.tcea * 100).toFixed(2)}%. Cotización sujeta a evaluación crediticia.`
+      `Cotización referencial, sujeta a evaluación crediticia.`
     ];
     const texto = encodeURIComponent(lineas.join('\n'));
     return `https://wa.me/?text=${texto}`;
