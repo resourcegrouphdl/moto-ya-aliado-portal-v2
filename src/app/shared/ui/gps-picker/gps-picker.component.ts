@@ -16,6 +16,7 @@ import { GoogleMapsModule } from '@angular/google-maps';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
+import { distritoCatalogadoDesde } from '../../util/distritos-lima-callao.util';
 import { ButtonComponent } from '../button/button.component';
 import { IconComponent } from '../icon/icon.component';
 
@@ -281,18 +282,26 @@ export class GpsPickerComponent implements OnInit {
   private emitirDireccionParseada(components: google.maps.GeocoderAddressComponent[]): void {
     let calle = '';
     let numero = '';
-    let distrito = '';
+    let localidad = ''; // `locality` -- en Lima Metropolitana, casi siempre el distrito REAL.
+    let sublocalidad = ''; // `sublocality_level_1` -- casi siempre una urbanización/asentamiento DENTRO del distrito, no el distrito en sí.
     let provincia = '';
     let departamento = '';
 
     for (const c of components) {
       if (c.types.includes('route')) calle = c.long_name;
       if (c.types.includes('street_number')) numero = c.long_name;
-      if (c.types.includes('sublocality_level_1')) distrito = c.long_name;
-      else if (!distrito && c.types.includes('locality')) distrito = c.long_name;
+      if (c.types.includes('locality')) localidad = c.long_name;
+      if (c.types.includes('sublocality_level_1')) sublocalidad = c.long_name;
       if (c.types.includes('administrative_area_level_2')) provincia = c.long_name;
       if (c.types.includes('administrative_area_level_1')) departamento = c.long_name;
     }
+
+    // Bug real 2026-08-28 (mismo fix que admin-v2/gps-picker.component.ts): antes se prefería
+    // `sublocality_level_1` sobre `locality` -- en zonas con asentamiento humano/urbanización nombrada,
+    // eso hacía que el nombre informal (sublocality) le ganara al distrito real (locality). Ahora se
+    // prefiere `locality`, y el resultado se valida contra el catálogo cerrado de distritos de Lima/Callao
+    // antes de autocompletar -- si no matchea un distrito real conocido, queda vacío a propósito.
+    const distrito = distritoCatalogadoDesde(localidad) ?? distritoCatalogadoDesde(sublocalidad) ?? '';
 
     const calleYNumero = [calle, numero].filter(Boolean).join(' ');
     const hayDireccionReal = calleYNumero.length > 0;
@@ -300,16 +309,12 @@ export class GpsPickerComponent implements OnInit {
       this.ultimaDireccionEmitida = calleYNumero;
     }
 
-    // `direccion` (auto-completa el campo del padre) solo cuando: (a) el
-    // geocoding vino del mapa, no de lo que el usuario está tipeando —
-    // pisar el campo mientras escribe interrumpe la escritura; y (b) Google
-    // encontró una calle/número reales, nunca un Plus Code/aproximación
-    // (bug real 2026-08-10). `direccionSugerida` viaja aparte siempre que
-    // haya una dirección real, sin importar el origen — el padre la guarda
-    // en su propia columna para uso futuro, independiente de si el
-    // vendedor edita luego el campo "Dirección" a mano.
+    // `direccion` (el campo que termina en los documentos generados) YA NO se autocompleta nunca desde
+    // acá, ni siquiera al hacer clic en el mapa (antes sí lo hacía) -- pedido real 2026-08-28: para un
+    // contrato de crédito, la dirección del recibo de servicios del cliente es más confiable que la que
+    // interpola Google a partir de un pin en el mapa. Copiar la sugerencia de Google al campo real ahora
+    // SIEMPRE requiere el clic explícito en "Usar esta dirección" (ver confirmarDireccionSugerida()).
     this.addressParsed.emit({
-      ...(this.origenGeocodificacion === 'mapa' && hayDireccionReal ? { direccion: calleYNumero } : {}),
       ...(hayDireccionReal ? { direccionSugerida: calleYNumero } : {}),
       departamento,
       provincia,
