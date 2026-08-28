@@ -255,9 +255,10 @@
 
   &__soat-tag {
     align-self: center;
-    font-size: 0.68rem;
+    font-size: var(--text-xs);
     font-weight: 700;
-    padding: 2px var(--space-2);
+    letter-spacing: 0.02em;
+    padding: 3px var(--space-3);
     border-radius: var(--radius-full);
     background: color-mix(in srgb, white 8%, transparent);
     color: var(--color-text-on-sidebar);
