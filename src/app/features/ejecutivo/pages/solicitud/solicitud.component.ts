@@ -22,6 +22,7 @@ import { SelectComponent, SelectOption } from '../../../../shared/ui/select/sele
 import { VerificacionEmailComponent } from '../../../../shared/ui/verificacion-email/verificacion-email.component';
 import { ModalService } from '../../../../shared/ui/modal/modal.service';
 import { PreCalificacionAlertDialogComponent } from '../../../../shared/ui/modal/pre-calificacion-alert-dialog.component';
+import { DISTRITO_LIMA_CALLAO_OPTIONS } from '../../../../shared/util/distritos-lima-callao.util';
 import { OriginacionApiService } from '../../../../core/originacion/originacion-api.service';
 import { PreCalificacionApiService } from '../../../../core/riesgo/precalificacion-api.service';
 import { ResultadoPreCalificacion } from '../../../../core/riesgo/precalificacion.models';
@@ -185,6 +186,7 @@ export class SolicitudComponent {
   protected readonly pasos = PASOS;
   protected readonly tiposDocumento = TIPOS_DOCUMENTO;
   protected readonly relaciones = RELACIONES;
+  protected readonly distritoOptions = DISTRITO_LIMA_CALLAO_OPTIONS;
   protected readonly nacionalidades = NACIONALIDAD_OPTIONS;
   protected readonly estadosCiviles = ESTADO_CIVIL_OPTIONS;
   protected readonly soatOptions = SOAT_OPTIONS;

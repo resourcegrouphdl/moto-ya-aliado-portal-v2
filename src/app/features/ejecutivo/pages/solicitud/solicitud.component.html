@@ -109,8 +109,20 @@
 
         <mt-input class="span-4" label="Departamento" formControlName="departamento" />
         <mt-input class="span-4" label="Provincia" formControlName="provincia" />
-        <mt-input class="span-4" label="Distrito" formControlName="distrito" />
-        <mt-input class="span-12" label="Dirección" formControlName="direccion" icon="home_pin" />
+        <mt-select
+          class="span-4"
+          label="Distrito"
+          formControlName="distrito"
+          [options]="distritoOptions"
+          hint="Si no aparece (fuera de Lima/Callao), avisa al equipo técnico"
+        />
+        <mt-input
+          class="span-12"
+          label="Dirección"
+          formControlName="direccion"
+          icon="home_pin"
+          hint="Escríbela tal como figura en el recibo de servicios — el mapa de abajo es solo para ubicar el domicilio"
+        />
       </form>
 
       <h3 class="form-section-title">
@@ -257,8 +269,20 @@
 
         <mt-input class="span-4" label="Departamento" formControlName="departamento" />
         <mt-input class="span-4" label="Provincia" formControlName="provincia" />
-        <mt-input class="span-4" label="Distrito" formControlName="distrito" />
-        <mt-input class="span-12" label="Dirección" formControlName="direccion" icon="home_pin" />
+        <mt-select
+          class="span-4"
+          label="Distrito"
+          formControlName="distrito"
+          [options]="distritoOptions"
+          hint="Si no aparece (fuera de Lima/Callao), avisa al equipo técnico"
+        />
+        <mt-input
+          class="span-12"
+          label="Dirección"
+          formControlName="direccion"
+          icon="home_pin"
+          hint="Escríbela tal como figura en el recibo de servicios — el mapa de abajo es solo para ubicar el domicilio"
+        />
       </form>
 
       <h3 class="form-section-title">
