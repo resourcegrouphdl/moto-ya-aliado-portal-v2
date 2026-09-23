@@ -114,6 +114,91 @@
       }
     </mt-card>
 
+    <mt-card>
+      <div card-header class="solicitud-detail__card-title"><mt-icon name="home" [size]="16" /> Verificación de domicilio</div>
+
+      @if (cargandoVerificacionDomicilio()) {
+        <p class="solicitud-detail__empty">Cargando verificación de domicilio…</p>
+      } @else if (errorVerificacionDomicilio()) {
+        <mt-alert variant="error" title="No se pudo cargar">{{ errorVerificacionDomicilio() }}</mt-alert>
+        <div class="solicitud-detail__actions">
+          <mt-button variant="secondary" size="sm" (click)="reintentarVerificacionDomicilio()">
+            <mt-icon name="refresh" [size]="14" /> Reintentar
+          </mt-button>
+        </div>
+      } @else {
+        <!-- El link se manda una sola vez al crear la solicitud, así que "sin verificación" es normal (una solicitud
+             anterior a esta etapa, o el envío automático que no salió) y el botón de reenviar se muestra igual. -->
+        @if (verificacionDomicilio(); as v) {
+          <div class="solicitud-detail__estado">
+            <mt-badge [variant]="estadoVerificacionDomicilioBadgeVariant[v.estado]">{{ estadoVerificacionDomicilioLabel[v.estado] }}</mt-badge>
+            @if (v.reenviadaPor) {
+              <span class="solicitud-detail__meta">Enlace reenviado a pedido del titular.</span>
+            }
+          </div>
+
+          <dl class="solicitud-detail__facts">
+            <div>
+              <dt>Enlace enviado</dt>
+              <dd>{{ fechaHoraLima(v.enviadaEn) ?? 'no se llegó a enviar' }}</dd>
+            </div>
+            @if (fechaHoraLima(v.usadaEn); as usada) {
+              <div><dt>Usado</dt><dd>{{ usada }}</dd></div>
+            }
+          </dl>
+          @if (v.estado === 'VIGENTE') {
+            <p class="solicitud-detail__meta">Vence el {{ fechaHoraLima(v.venceEn) }} — el enlace dura 48 h.</p>
+          }
+
+          @if (v.alertaDistancia) {
+            <mt-alert variant="warning" title="Aviso de distancia">
+              Alguna de las fotos se tomó a más de 200 m de la dirección declarada. Es un aviso para que lo revises, no impide continuar.
+            </mt-alert>
+          }
+
+          @if (v.fotos.length === 0) {
+            <p class="solicitud-detail__empty">Todavía no subió ninguna foto.</p>
+          } @else {
+            <div class="verificacion-domicilio__fotos">
+              @for (foto of v.fotos; track foto.tipo) {
+                <figure class="verificacion-domicilio__foto">
+                  <figcaption class="documentos-subtitulo">{{ tipoFotoVerificacionDomicilioLabel[foto.tipo] }}</figcaption>
+                  <a [href]="foto.url" target="_blank" rel="noopener" class="verificacion-domicilio__foto-link">
+                    <img [src]="foto.url" [alt]="tipoFotoVerificacionDomicilioLabel[foto.tipo] + ' del domicilio'" loading="lazy" />
+                  </a>
+                  <p class="solicitud-detail__meta">
+                    @if (foto.distanciaMetros != null) {
+                      a {{ metrosRedondeados(foto.distanciaMetros) }} m del domicilio declarado
+                    } @else {
+                      sin ubicación
+                    }
+                  </p>
+                  @if (fechaHoraLima(foto.capturadaEn); as capturada) {
+                    <p class="solicitud-detail__meta">Foto tomada el {{ capturada }}</p>
+                  }
+                </figure>
+              }
+            </div>
+          }
+        } @else if (sinVerificacionDomicilio()) {
+          <p class="solicitud-detail__empty">Todavía no se le pidió el link al titular.</p>
+        }
+
+        @if (avisoVerificacionDomicilio(); as aviso) {
+          <mt-alert variant="success" title="Enlace reenviado">{{ aviso }}</mt-alert>
+        }
+        @if (errorReenvioVerificacionDomicilio(); as errorReenvio) {
+          <mt-alert variant="error" title="No se pudo reenviar">{{ errorReenvio }}</mt-alert>
+        }
+
+        <div class="solicitud-detail__actions">
+          <mt-button variant="secondary" size="sm" [loading]="reenviandoVerificacionDomicilio()" (click)="reenviarVerificacionDomicilio()">
+            <mt-icon name="send" [size]="14" /> Reenviar enlace
+          </mt-button>
+        </div>
+      }
+    </mt-card>
+
     @if (exp.referencias.length > 0) {
       <mt-card>
         <div card-header class="solicitud-detail__card-title"><mt-icon name="contacts" [size]="16" /> Referencias</div>

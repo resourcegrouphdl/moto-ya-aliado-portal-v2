@@ -1,3 +1,5 @@
+@use '../../../../../styles/abstracts/mixins' as m;
+
 :host {
   display: block;
   max-width: 900px;
@@ -183,5 +185,41 @@
 @media (max-width: 640px) {
   .form-grid > * {
     grid-column: span 12 !important;
+  }
+}
+
+// Verificación de domicilio (etapa 5) — una tarjeta por foto (fachada / selfie en la puerta). La imagen va dentro de
+// un enlace que la abre en su tamaño completo en otra pestaña.
+.verificacion-domicilio__fotos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.verificacion-domicilio__foto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.verificacion-domicilio__foto-link {
+  @include m.focus-ring;
+  display: block;
+  margin-bottom: var(--space-1);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  line-height: 0; // una imagen en línea deja un hueco de línea debajo, y acá se ve como un borde de más
+
+  img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: var(--color-surface-hover);
   }
 }
