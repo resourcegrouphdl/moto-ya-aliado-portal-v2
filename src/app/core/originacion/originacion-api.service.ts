@@ -15,6 +15,7 @@ import {
   DatosReferencia,
   DatosVehiculo,
   DocumentoSolicitudResponse,
+  EstadoVerificacionEmail,
   ExpedienteSolicitudResponse,
   HistorialSolicitudCliente,
   ReferenciaResponse,
@@ -58,6 +59,14 @@ export class OriginacionApiService {
 
   crearSolicitud(datos: CrearSolicitudRequest): Observable<SolicitudCreditoResponse> {
     return this.http.post<SolicitudCreditoResponse>(`${this.base}/solicitudes`, datos);
+  }
+
+  /**
+   * Estado del código de verificación vigente de un correo (2026-09-23, etapa 2): el bloque del wizard se
+   * reconstruye con esto al volver a un paso o al recargar la página, en vez de pedir un código nuevo.
+   */
+  estadoVerificacionEmail(email: string): Observable<EstadoVerificacionEmail> {
+    return this.http.get<EstadoVerificacionEmail>(`${this.base}/verificacion-email/estado`, { params: { email } });
   }
 
   /** Detalle completo para la pantalla "mi solicitud" del vendedor (fase 3) — titular/avalista/vehículo/referencias. */

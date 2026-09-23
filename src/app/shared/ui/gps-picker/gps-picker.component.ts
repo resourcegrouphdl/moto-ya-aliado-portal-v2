@@ -12,11 +12,13 @@ import {
   signal
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { GoogleMapsModule } from '@angular/google-maps';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
-import { distritoCatalogadoDesde } from '../../util/distritos-lima-callao.util';
+import { UbigeoService, ubicacionPorNombres } from '../../../core/ubigeo/ubigeo.service';
+import { CatalogoUbigeo } from '../../../core/ubigeo/ubigeo.models';
 import { ButtonComponent } from '../button/button.component';
 import { IconComponent } from '../icon/icon.component';
 
@@ -40,6 +42,12 @@ export interface DireccionParseada {
    * (contratos, etc.) — esa fuente sigue siendo únicamente `direccion`.
    */
   direccionSugerida?: string;
+  /**
+   * Código INEI del distrito cuando el texto que devolvió Google se pudo resolver contra el catálogo completo
+   * (2026-09-23: antes se validaba solo contra Lima/Callao). `null` = no se pudo resolver: el distrito se elige a
+   * mano en la cascada, nunca se prellena un nombre que no sea un distrito real.
+   */
+  ubigeoDistrito: string | null;
   departamento: string;
   provincia: string;
   distrito: string;
@@ -97,6 +105,10 @@ export class GpsPickerComponent implements OnInit {
 
   private readonly platformId = inject(PLATFORM_ID);
   private readonly ngZone = inject(NgZone);
+  private readonly ubigeo = inject(UbigeoService);
+
+  /** Catálogo de distritos del INEI — con él se resuelve lo que Google devuelve antes de emitirlo al padre. */
+  private readonly catalogo = signal<CatalogoUbigeo | null>(null);
 
   private geocoder: google.maps.Geocoder | null = null;
   private ultimaDireccionEmitida: string | null = null;
@@ -107,6 +119,16 @@ export class GpsPickerComponent implements OnInit {
   private readonly seguirDireccionTexto = effect(() => this.direccionTexto$.next(this.direccionTexto()));
 
   constructor() {
+    this.ubigeo
+      .catalogo()
+      .pipe(takeUntilDestroyed())
+      .subscribe({
+        next: (catalogo) => this.catalogo.set(catalogo),
+        // Sin catálogo el picker sigue funcionando (emite coordenadas y sugerencia); lo que no puede es
+        // resolver el distrito, y en ese caso lo deja vacío para que se elija a mano.
+        error: () => this.catalogo.set(null)
+      });
+
     this.direccionTexto$
       .pipe(
         debounceTime(700),
@@ -299,9 +321,12 @@ export class GpsPickerComponent implements OnInit {
     // Bug real 2026-08-28 (mismo fix que admin-v2/gps-picker.component.ts): antes se prefería
     // `sublocality_level_1` sobre `locality` -- en zonas con asentamiento humano/urbanización nombrada,
     // eso hacía que el nombre informal (sublocality) le ganara al distrito real (locality). Ahora se
-    // prefiere `locality`, y el resultado se valida contra el catálogo cerrado de distritos de Lima/Callao
-    // antes de autocompletar -- si no matchea un distrito real conocido, queda vacío a propósito.
-    const distrito = distritoCatalogadoDesde(localidad) ?? distritoCatalogadoDesde(sublocalidad) ?? '';
+    // prefiere `locality` y el texto se resuelve contra el catálogo completo de distritos del INEI
+    // (2026-09-23: antes solo existía Lima/Callao) — si no matchea un distrito real, queda vacío a propósito
+    // y el vendedor lo elige en la cascada.
+    const resuelta =
+      ubicacionPorNombres(this.catalogo(), departamento, provincia, localidad) ??
+      ubicacionPorNombres(this.catalogo(), departamento, provincia, sublocalidad);
 
     const calleYNumero = [calle, numero].filter(Boolean).join(' ');
     const hayDireccionReal = calleYNumero.length > 0;
@@ -316,9 +341,10 @@ export class GpsPickerComponent implements OnInit {
     // SIEMPRE requiere el clic explícito en "Usar esta dirección" (ver confirmarDireccionSugerida()).
     this.addressParsed.emit({
       ...(hayDireccionReal ? { direccionSugerida: calleYNumero } : {}),
-      departamento,
-      provincia,
-      distrito
+      ubigeoDistrito: resuelta?.ubigeoDistrito ?? null,
+      departamento: resuelta?.departamento ?? '',
+      provincia: resuelta?.provincia ?? '',
+      distrito: resuelta?.distrito ?? ''
     });
 
     this.sinDireccionExacta.set(this.origenGeocodificacion === 'mapa' && !hayDireccionReal);

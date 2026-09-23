@@ -72,10 +72,14 @@ export interface CrearClienteRequest {
   apellidoMaterno: string;
   telefono?: string;
   email?: string;
-  departamento?: string;
-  provincia?: string;
-  distrito?: string;
-  direccion?: string;
+  departamento?: string | null;
+  provincia?: string | null;
+  distrito?: string | null;
+  /** Código INEI de 6 dígitos del distrito elegido en la cascada — la entrada autoritativa de la ubicación (el backend resuelve los nombres). */
+  ubigeoDistrito?: string | null;
+  direccion?: string | null;
+  /** Cómo ubicar la vivienda ("frente al parque, casa azul") — opcional. */
+  referencia?: string | null;
   latitud?: number | null;
   longitud?: number | null;
   /** Sugerencia de Google al marcar el pin en el mapa — nunca se usa en documentos generados, solo para uso futuro. */
@@ -97,7 +101,10 @@ export interface ClienteResponse {
   departamento: string | null;
   provincia: string | null;
   distrito: string | null;
+  /** Código INEI de 6 dígitos del distrito (null en las direcciones capturadas antes de la cascada). */
+  ubigeoDistrito: string | null;
   direccion: string | null;
+  referencia: string | null;
   latitud: number | null;
   longitud: number | null;
   /** Sugerencia de Google al marcar el pin en el mapa — nunca se usa en documentos generados, solo para uso futuro. */
@@ -116,7 +123,9 @@ export interface ActualizarDireccionRequest {
   departamento?: string | null;
   provincia?: string | null;
   distrito?: string | null;
+  ubigeoDistrito?: string | null;
   direccion?: string | null;
+  referencia?: string | null;
   latitud?: number | null;
   longitud?: number | null;
   direccionSugerida?: string | null;
@@ -126,6 +135,20 @@ export interface ActualizarDireccionRequest {
 }
 
 /** Respuesta de /partner/originacion/lookup/dni/{numero} y .../lookup/cee/{numero} — mismos 4 campos en ambos. */
+/**
+ * GET /originacion/verificacion-email/estado — estado del código de verificación de un correo (2026-09-23, etapa 2
+ * del plan de originación). Los segundos vienen del servidor a propósito: el frontend solo pinta la cuenta regresiva.
+ */
+export interface EstadoVerificacionEmail {
+  verificado: boolean;
+  vigente: boolean;
+  segundosRestantes: number;
+  intentosRestantes: number;
+  puedeReenviar: boolean;
+  segundosParaReenviar: number;
+  limitePorHoraAlcanzado: boolean;
+}
+
 export interface ConsultaDniResponse {
   numero: string;
   nombres: string;
@@ -375,9 +398,14 @@ export const ESTADO_DOCUMENTO_SOLICITUD_BADGE_VARIANT: Record<EstadoDocumentoSol
 };
 
 /** Slots de documentos por rol — SELFIE solo aplica a TITULAR (el aval no la requiere). */
+/**
+ * Slots de documentos que el wizard del vendedor ofrece para subir a mano. **Sin DNI**: la foto del DNI entra por el
+ * flujo con OCR (`mt-documento-identidad-upload`), que además la registra como `DNI_FRENTE` — ofrecerla también acá
+ * era el duplicado que se eliminó en la etapa 3 (2026-09-23). Los tipos `DNI_FRENTE`/`DNI_REVERSO` siguen existiendo
+ * en el catálogo: los usan los documentos ya subidos y el «reemplazar» del analista en admin-v2 (que sí conserva sus
+ * slots, porque ahí no hay bloque de OCR y es la única vía para reemplazar un DNI observado).
+ */
 export const DOCUMENTOS_TITULAR: { tipo: TipoDocumentoSolicitud; label: string }[] = [
-  { tipo: 'DNI_FRENTE', label: 'DNI — frente' },
-  { tipo: 'DNI_REVERSO', label: 'DNI — reverso' },
   { tipo: 'LICENCIA_FRENTE', label: 'Licencia de conducir — frente' },
   { tipo: 'LICENCIA_REVERSO', label: 'Licencia de conducir — reverso' },
   { tipo: 'SELFIE', label: 'Selfie' },

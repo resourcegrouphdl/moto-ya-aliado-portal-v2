@@ -19,16 +19,19 @@ import { IconComponent } from '../../../../shared/ui/icon/icon.component';
 import { InputComponent } from '../../../../shared/ui/input/input.component';
 import { DateInputComponent } from '../../../../shared/ui/date-input/date-input.component';
 import { SelectComponent, SelectOption } from '../../../../shared/ui/select/select.component';
+import { UbigeoSelectorComponent } from '../../../../shared/ui/ubigeo-selector/ubigeo-selector.component';
 import { VerificacionEmailComponent } from '../../../../shared/ui/verificacion-email/verificacion-email.component';
 import { ModalService } from '../../../../shared/ui/modal/modal.service';
 import { PreCalificacionAlertDialogComponent } from '../../../../shared/ui/modal/pre-calificacion-alert-dialog.component';
-import { DISTRITO_LIMA_CALLAO_OPTIONS } from '../../../../shared/util/distritos-lima-callao.util';
+import { UBICACION_VACIA, UbicacionSeleccionada, ubicacionRequerida } from '../../../../core/ubigeo/ubigeo.models';
 import { OriginacionApiService } from '../../../../core/originacion/originacion-api.service';
 import { PreCalificacionApiService } from '../../../../core/riesgo/precalificacion-api.service';
 import { ResultadoPreCalificacion } from '../../../../core/riesgo/precalificacion.models';
 import {
+  ActualizarDireccionRequest,
   ClienteResponse,
   ConsultaDniResponse,
+  CrearClienteRequest,
   DOCUMENTOS_AVALISTA,
   DOCUMENTOS_TITULAR,
   DocumentoSolicitudResponse,
@@ -54,6 +57,40 @@ type Paso =
   | 'referencias'
   | 'revision'
   | 'completado';
+
+/** Campos de dirección que comparten los dos formularios de persona (titular y aval). */
+interface ValorDireccion {
+  ubicacion: UbicacionSeleccionada;
+  direccion: string;
+  referencia: string;
+  direccionSugerida: string;
+  latitud: number | null;
+  longitud: number | null;
+  fechaNacimiento: string;
+  nacionalidad: Nacionalidad;
+  estadoCivil: EstadoCivil | null;
+}
+
+/** Identidad que hace falta para crear el cliente (el aval no captura correo en este wizard). */
+interface ValorIdentidad {
+  tipoDocumento: TipoDocumentoIdentidad;
+  numeroDocumento: string;
+  nombres: string;
+  apellidoPaterno: string;
+  apellidoMaterno: string;
+  telefono: string;
+  email?: string;
+}
+
+/** Lo que el mapa propone como dirección: se copia a la ubicación del formulario tal cual (nombres ya del catálogo). */
+function ubicacionDesdeParseada(parseada: DireccionParseada): UbicacionSeleccionada {
+  return {
+    ubigeoDistrito: parseada.ubigeoDistrito ?? null,
+    departamento: parseada.departamento ?? '',
+    provincia: parseada.provincia ?? '',
+    distrito: parseada.distrito ?? ''
+  };
+}
 
 const PASOS: { id: Paso; etiqueta: string; icono: string }[] = [
   { id: 'titular', etiqueta: 'Titular', icono: 'person' },
@@ -170,6 +207,7 @@ const RELACIONES: SelectOption<string>[] = [
     InputComponent,
     DateInputComponent,
     SelectComponent,
+    UbigeoSelectorComponent,
     VerificacionEmailComponent
   ],
   templateUrl: './solicitud.component.html',
@@ -186,7 +224,6 @@ export class SolicitudComponent {
   protected readonly pasos = PASOS;
   protected readonly tiposDocumento = TIPOS_DOCUMENTO;
   protected readonly relaciones = RELACIONES;
-  protected readonly distritoOptions = DISTRITO_LIMA_CALLAO_OPTIONS;
   protected readonly nacionalidades = NACIONALIDAD_OPTIONS;
   protected readonly estadosCiviles = ESTADO_CIVIL_OPTIONS;
   protected readonly soatOptions = SOAT_OPTIONS;
@@ -265,14 +302,19 @@ export class SolicitudComponent {
     apellidoMaterno: ['', Validators.required],
     telefono: [''],
     email: ['', Validators.email],
-    departamento: [''],
-    provincia: [''],
-    distrito: [''],
-    direccion: [''],
+    // Ubicación (departamento/provincia/distrito del catálogo + su código) en un solo control: los tres selects
+    // se habilitan en cascada y no se puede guardar un distrito que no pertenezca a su provincia (ver
+    // UbigeoSelectorComponent). `direccion` es la dirección ESCRITA — la del recibo — y es la que imprime el
+    // contrato; el picker de abajo solo aporta las coordenadas.
+    ubicacion: [UBICACION_VACIA, ubicacionRequerida],
+    direccion: ['', Validators.required],
+    referencia: [''],
     direccionSugerida: [''],
     latitud: [null as number | null],
     longitud: [null as number | null],
-    fechaNacimiento: [''],
+    // Obligatoria (etapa 3, 2026-09-23): con la fecha nula la regla KO de edad mínima no se evalúa y un menor
+    // podría pasar el filtro. El OCR la prellena; si no la lee, el vendedor la pide y la escribe acá.
+    fechaNacimiento: ['', Validators.required],
     nacionalidad: ['PERU' as Nacionalidad],
     estadoCivil: [null as EstadoCivil | null]
   });
@@ -284,14 +326,13 @@ export class SolicitudComponent {
     apellidoPaterno: ['', Validators.required],
     apellidoMaterno: ['', Validators.required],
     telefono: [''],
-    departamento: [''],
-    provincia: [''],
-    distrito: [''],
-    direccion: [''],
+    ubicacion: [UBICACION_VACIA, ubicacionRequerida],
+    direccion: ['', Validators.required],
+    referencia: [''],
     direccionSugerida: [''],
     latitud: [null as number | null],
     longitud: [null as number | null],
-    fechaNacimiento: [''],
+    fechaNacimiento: ['', Validators.required],
     nacionalidad: ['PERU' as Nacionalidad],
     estadoCivil: [null as EstadoCivil | null],
     relacion: ['Padre/Madre', Validators.required]
@@ -404,6 +445,51 @@ export class SolicitudComponent {
     });
   }
 
+  /** Ubicación guardada de un cliente tal como la consume el selector (con código de catálogo o sin él). */
+  private ubicacionDe(cliente: ClienteResponse): UbicacionSeleccionada {
+    return {
+      ubigeoDistrito: cliente.ubigeoDistrito ?? null,
+      departamento: cliente.departamento ?? '',
+      provincia: cliente.provincia ?? '',
+      distrito: cliente.distrito ?? ''
+    };
+  }
+
+  /**
+   * Dirección para el backend a partir del formulario. Los tres nombres salen del catálogo (los eligió la cascada);
+   * aun así el backend no confía en ellos: recibe el código del distrito y vuelve a resolver los nombres.
+   */
+  private direccionDeFormulario(datos: ValorDireccion): ActualizarDireccionRequest {
+    return {
+      departamento: datos.ubicacion?.departamento ?? '',
+      provincia: datos.ubicacion?.provincia ?? '',
+      distrito: datos.ubicacion?.distrito ?? '',
+      ubigeoDistrito: datos.ubicacion?.ubigeoDistrito ?? null,
+      direccion: datos.direccion,
+      referencia: datos.referencia || null,
+      direccionSugerida: datos.direccionSugerida,
+      latitud: datos.latitud,
+      longitud: datos.longitud,
+      fechaNacimiento: datos.fechaNacimiento || null,
+      nacionalidad: datos.nacionalidad,
+      estadoCivil: datos.estadoCivil
+    };
+  }
+
+  /** Cuerpo de POST /clientes (identidad + dirección) a partir del formulario. */
+  private clienteDeFormulario(datos: ValorDireccion & ValorIdentidad): CrearClienteRequest {
+    return {
+      tipoDocumento: datos.tipoDocumento,
+      numeroDocumento: datos.numeroDocumento,
+      nombres: datos.nombres,
+      apellidoPaterno: datos.apellidoPaterno,
+      apellidoMaterno: datos.apellidoMaterno,
+      telefono: datos.telefono,
+      email: datos.email,
+      ...this.direccionDeFormulario(datos)
+    };
+  }
+
   private aplicarExpediente(expediente: ExpedienteSolicitudResponse, documentos: DocumentoSolicitudResponse[]): void {
     const { solicitud, titular, avalista, avalistaRelacion, vehiculo, referencias } = expediente;
 
@@ -417,10 +503,9 @@ export class SolicitudComponent {
       apellidoMaterno: titular.apellidoMaterno,
       telefono: titular.telefono ?? '',
       email: titular.email ?? '',
-      departamento: titular.departamento ?? '',
-      provincia: titular.provincia ?? '',
-      distrito: titular.distrito ?? '',
+      ubicacion: this.ubicacionDe(titular),
       direccion: titular.direccion ?? '',
+      referencia: titular.referencia ?? '',
       direccionSugerida: titular.direccionSugerida ?? '',
       latitud: titular.latitud,
       longitud: titular.longitud,
@@ -442,10 +527,9 @@ export class SolicitudComponent {
         apellidoPaterno: avalista.apellidoPaterno,
         apellidoMaterno: avalista.apellidoMaterno,
         telefono: avalista.telefono ?? '',
-        departamento: avalista.departamento ?? '',
-        provincia: avalista.provincia ?? '',
-        distrito: avalista.distrito ?? '',
+        ubicacion: this.ubicacionDe(avalista),
         direccion: avalista.direccion ?? '',
+        referencia: avalista.referencia ?? '',
         direccionSugerida: avalista.direccionSugerida ?? '',
         latitud: avalista.latitud,
         longitud: avalista.longitud,
@@ -715,8 +799,13 @@ export class SolicitudComponent {
     });
   }
 
+  /**
+   * El picker resuelve el distrito contra el catálogo antes de emitir (ver `GpsPickerComponent`): si el texto que
+   * devolvió Google no es un distrito del catálogo, llega vacío y la cascada queda a la espera de que se elija a
+   * mano — nunca se prellena basura. Es una sugerencia: lo elegido a mano siempre gana.
+   */
   protected onDireccionTitularParsed(data: DireccionParseada): void {
-    this.formTitular.patchValue(data);
+    this.formTitular.patchValue({ ubicacion: ubicacionDesdeParseada(data) });
   }
 
   protected onCoordenadasTitular(coords: Coordenadas): void {
@@ -729,7 +818,7 @@ export class SolicitudComponent {
   }
 
   protected onDireccionAvalistaParsed(data: DireccionParseada): void {
-    this.formAvalista.patchValue(data);
+    this.formAvalista.patchValue({ ubicacion: ubicacionDesdeParseada(data) });
   }
 
   protected onCoordenadasAvalista(coords: Coordenadas): void {
@@ -751,11 +840,9 @@ export class SolicitudComponent {
     if (this.zonaBloqueaAvanceTitular()) {
       return;
     }
-    // Verificación de correo (2026-08-16) — solo bloquea si el vendedor tecleó un correo (sigue opcional). Mismo
-    // patrón defensivo que el botón, que ya queda [disabled] en el template.
-    if (this.emailTitularTexto()?.trim() && !this.correoVerificado()) {
-      return;
-    }
+    // Verificación de correo: NO bloquea el avance (2026-09-23, etapa 2 del plan de originación). El vendedor
+    // sigue cargando documentos/aval/vehículo mientras el cliente busca el código, y el bloqueo se aplica recién
+    // en Revisión (ver finalizar()).
     const datos = this.formTitular.getRawValue();
     this.guardando.set(true);
     this.error.set(null);
@@ -770,18 +857,7 @@ export class SolicitudComponent {
       // backend rechaza una 2da solicitud para el mismo titular), así que
       // solo se actualiza la dirección/GPS y se avanza, sin recrear nada.
       this.api
-        .actualizarDireccionCliente(titularExistente.id, {
-          departamento: datos.departamento,
-          provincia: datos.provincia,
-          distrito: datos.distrito,
-          direccion: datos.direccion,
-          direccionSugerida: datos.direccionSugerida,
-          latitud: datos.latitud,
-          longitud: datos.longitud,
-          fechaNacimiento: datos.fechaNacimiento || null,
-          nacionalidad: datos.nacionalidad,
-          estadoCivil: datos.estadoCivil
-        })
+        .actualizarDireccionCliente(titularExistente.id, this.direccionDeFormulario(datos))
         .subscribe({
           next: (cliente) => {
             this.titular.set(cliente);
@@ -797,24 +873,13 @@ export class SolicitudComponent {
       .buscarClientePorDocumento(datos.tipoDocumento, datos.numeroDocumento)
       .pipe(
         catchError((err: HttpErrorResponse) =>
-          err.status === 404 ? this.api.crearCliente(datos) : throwError(() => err)
+          err.status === 404 ? this.api.crearCliente(this.clienteDeFormulario(datos)) : throwError(() => err)
         ),
         // Se llama siempre (cliente creado o encontrado) — crearCliente no es
         // find-or-create, así que si el documento ya existía la dirección/GPS
         // tipeada en esta corrida del wizard se perdía sin este paso.
         switchMap((cliente) =>
-          this.api.actualizarDireccionCliente(cliente.id, {
-            departamento: datos.departamento,
-            provincia: datos.provincia,
-            distrito: datos.distrito,
-            direccion: datos.direccion,
-            direccionSugerida: datos.direccionSugerida,
-            latitud: datos.latitud,
-            longitud: datos.longitud,
-            fechaNacimiento: datos.fechaNacimiento || null,
-            nacionalidad: datos.nacionalidad,
-            estadoCivil: datos.estadoCivil
-          })
+          this.api.actualizarDireccionCliente(cliente.id, this.direccionDeFormulario(datos))
         ),
         switchMap((cliente) =>
           // documentosMinimosCompletos siempre false acá: la solicitud se crea
@@ -915,21 +980,10 @@ export class SolicitudComponent {
 
     this.api
       .buscarClientePorDocumento(datos.tipoDocumento, datos.numeroDocumento)
-      .pipe(catchError((err: HttpErrorResponse) => (err.status === 404 ? this.api.crearCliente(datos) : throwError(() => err))))
+      .pipe(catchError((err: HttpErrorResponse) => (err.status === 404 ? this.api.crearCliente(this.clienteDeFormulario(datos)) : throwError(() => err))))
       .pipe(
         switchMap((cliente) =>
-          this.api.actualizarDireccionCliente(cliente.id, {
-            departamento: datos.departamento,
-            provincia: datos.provincia,
-            distrito: datos.distrito,
-            direccion: datos.direccion,
-            direccionSugerida: datos.direccionSugerida,
-            latitud: datos.latitud,
-            longitud: datos.longitud,
-            fechaNacimiento: datos.fechaNacimiento || null,
-            nacionalidad: datos.nacionalidad,
-            estadoCivil: datos.estadoCivil
-          })
+          this.api.actualizarDireccionCliente(cliente.id, this.direccionDeFormulario(datos))
         ),
         switchMap((cliente) =>
           // Si ya había un aval guardado (se retrocedió a este paso), se
@@ -1069,6 +1123,15 @@ export class SolicitudComponent {
   }
 
   finalizar(): void {
+    // Último bloqueo de la verificación de correo (2026-09-23): acá es donde el dato tiene que estar firme.
+    // El botón ya queda [disabled] en el template — esto es la defensa por si se llega igual.
+    if (this.correoTitularPendienteDeVerificar()) {
+      this.error.set(
+        'El correo del titular sigue sin verificar. Vuelve al paso Titular: si el cliente ya tiene el código ' +
+          'vigente, solo hay que escribirlo (no hace falta enviar uno nuevo).'
+      );
+      return;
+    }
     this.paso.set('completado');
   }
 
@@ -1089,8 +1152,14 @@ export class SolicitudComponent {
     this.correoVerificado.set(false);
     this.errorDniTitular.set(undefined);
     this.errorDniAvalista.set(undefined);
-    this.formTitular.reset({ tipoDocumento: 'DNI', latitud: null, longitud: null });
-    this.formAvalista.reset({ tipoDocumento: 'DNI', relacion: 'Padre/Madre', latitud: null, longitud: null });
+    this.formTitular.reset({ tipoDocumento: 'DNI', ubicacion: UBICACION_VACIA, latitud: null, longitud: null });
+    this.formAvalista.reset({
+      tipoDocumento: 'DNI',
+      relacion: 'Padre/Madre',
+      ubicacion: UBICACION_VACIA,
+      latitud: null,
+      longitud: null
+    });
     this.formVehiculo.reset({ anio: new Date().getFullYear() });
     this.formReferencia.reset({ relacion: 'Amigo(a)' });
     this.mostrarFormReferencia.set(true);

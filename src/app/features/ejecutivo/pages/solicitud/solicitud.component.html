@@ -99,7 +99,14 @@
           <mt-verificacion-email class="span-12" [email]="emailTitularTexto()" (verificadoChange)="correoVerificado.set($event)" />
         }
 
-        <mt-date-input class="span-3" label="Fecha de nacimiento" formControlName="fechaNacimiento" />
+        <mt-date-input
+          class="span-3"
+          label="Fecha de nacimiento"
+          formControlName="fechaNacimiento"
+          [errorMessage]="formTitular.controls.fechaNacimiento.touched && formTitular.controls.fechaNacimiento.invalid
+            ? 'La fecha de nacimiento es obligatoria (se usa para calcular la edad)'
+            : ''"
+        />
         <mt-select class="span-3" label="Nacionalidad" formControlName="nacionalidad" [options]="nacionalidades" />
         <mt-select class="span-3" label="Estado civil" formControlName="estadoCivil" [options]="estadosCiviles" />
         <div class="span-3 edad-preview">
@@ -107,21 +114,30 @@
           <strong class="edad-preview__valor">{{ edadTitular() !== null ? edadTitular() + ' años' : '—' }}</strong>
         </div>
 
-        <mt-input class="span-4" label="Departamento" formControlName="departamento" />
-        <mt-input class="span-4" label="Provincia" formControlName="provincia" />
-        <mt-select
-          class="span-4"
-          label="Distrito"
-          formControlName="distrito"
-          [options]="distritoOptions"
-          hint="Si no aparece (fuera de Lima/Callao), avisa al equipo técnico"
+        <!-- Dirección del titular: departamento/provincia/distrito salen del catálogo del INEI en cascada
+             (obligatorio), y la dirección escrita es la que se imprime en el contrato. -->
+        <mt-ubigeo-selector
+          class="span-12"
+          formControlName="ubicacion"
+          [errorMessage]="formTitular.controls.ubicacion.touched && formTitular.controls.ubicacion.invalid
+            ? 'Elige departamento, provincia y distrito'
+            : ''"
         />
         <mt-input
           class="span-12"
           label="Dirección"
           formControlName="direccion"
           icon="home_pin"
+          [errorMessage]="formTitular.controls.direccion.touched && formTitular.controls.direccion.invalid
+            ? 'Escribe la dirección tal como figura en el recibo'
+            : ''"
           hint="Escríbela tal como figura en el recibo de servicios — el mapa de abajo es solo para ubicar el domicilio"
+        />
+        <mt-input
+          class="span-12"
+          label="Referencia (opcional)"
+          formControlName="referencia"
+          hint="Cómo llegar: «frente al parque», «casa azul de dos pisos», «a media cuadra del mercado»"
         />
       </form>
 
@@ -142,15 +158,12 @@
       <div card-footer class="step-actions">
         <span class="step-actions__hint">
           @if (correoTitularPendienteDeVerificar()) {
-            Verifica el correo del titular para continuar
+            El correo queda pendiente de verificar: puedes seguir y confirmarlo cuando el cliente te pase el código
           } @else {
             Paso {{ pasoIndex() + 1 }} de {{ pasos.length }}
           }
         </span>
-        <mt-button
-          (click)="continuarTitular()"
-          [loading]="guardando()"
-          [disabled]="zonaBloqueaAvanceTitular() || correoTitularPendienteDeVerificar()"
+        <mt-button (click)="continuarTitular()" [loading]="guardando()" [disabled]="zonaBloqueaAvanceTitular()"
           >Continuar</mt-button
         >
       </div>
@@ -173,7 +186,6 @@
             rol="TITULAR"
             [tipo]="slot.tipo"
             [documento]="documentoDe(documentosTitular(), slot.tipo)"
-            [nota]="slot.tipo === 'DNI_FRENTE' ? 'Ya la subiste arriba — toca Reemplazar solo si hace falta' : undefined"
             (documentoSubido)="onDocumentoTitularSubido($event)"
           />
         }
@@ -259,7 +271,14 @@
         <mt-input class="span-6" label="Teléfono" formControlName="telefono" type="tel" icon="call" />
         <mt-select class="span-6" label="Relación con el titular" formControlName="relacion" [options]="relaciones" />
 
-        <mt-date-input class="span-3" label="Fecha de nacimiento" formControlName="fechaNacimiento" />
+        <mt-date-input
+          class="span-3"
+          label="Fecha de nacimiento"
+          formControlName="fechaNacimiento"
+          [errorMessage]="formAvalista.controls.fechaNacimiento.touched && formAvalista.controls.fechaNacimiento.invalid
+            ? 'La fecha de nacimiento es obligatoria (se usa para calcular la edad)'
+            : ''"
+        />
         <mt-select class="span-3" label="Nacionalidad" formControlName="nacionalidad" [options]="nacionalidades" />
         <mt-select class="span-3" label="Estado civil" formControlName="estadoCivil" [options]="estadosCiviles" />
         <div class="span-3 edad-preview">
@@ -267,21 +286,29 @@
           <strong class="edad-preview__valor">{{ edadAvalista() !== null ? edadAvalista() + ' años' : '—' }}</strong>
         </div>
 
-        <mt-input class="span-4" label="Departamento" formControlName="departamento" />
-        <mt-input class="span-4" label="Provincia" formControlName="provincia" />
-        <mt-select
-          class="span-4"
-          label="Distrito"
-          formControlName="distrito"
-          [options]="distritoOptions"
-          hint="Si no aparece (fuera de Lima/Callao), avisa al equipo técnico"
+        <!-- Misma cascada que el titular: el aval también firma el contrato con su domicilio. -->
+        <mt-ubigeo-selector
+          class="span-12"
+          formControlName="ubicacion"
+          [errorMessage]="formAvalista.controls.ubicacion.touched && formAvalista.controls.ubicacion.invalid
+            ? 'Elige departamento, provincia y distrito'
+            : ''"
         />
         <mt-input
           class="span-12"
           label="Dirección"
           formControlName="direccion"
           icon="home_pin"
+          [errorMessage]="formAvalista.controls.direccion.touched && formAvalista.controls.direccion.invalid
+            ? 'Escribe la dirección tal como figura en el recibo'
+            : ''"
           hint="Escríbela tal como figura en el recibo de servicios — el mapa de abajo es solo para ubicar el domicilio"
+        />
+        <mt-input
+          class="span-12"
+          label="Referencia (opcional)"
+          formControlName="referencia"
+          hint="Cómo llegar: «frente al parque», «casa azul de dos pisos», «a media cuadra del mercado»"
         />
       </form>
 
@@ -322,7 +349,6 @@
             rol="AVALISTA"
             [tipo]="slot.tipo"
             [documento]="documentoDe(documentosAvalista(), slot.tipo)"
-            [nota]="slot.tipo === 'DNI_FRENTE' ? 'Ya la subiste arriba — toca Reemplazar solo si hace falta' : undefined"
             (documentoSubido)="onDocumentoAvalistaSubido($event)"
           />
         }
@@ -474,9 +500,16 @@
         </section>
       </div>
 
+      @if (correoTitularPendienteDeVerificar()) {
+        <mt-alert variant="warning" title="Correo del titular sin verificar" class="wizard-alert">
+          El cliente todavía no confirmó el código. Vuelve al paso <strong>Titular</strong> y escribí el código que te
+          pase: si ya se le envió uno, sigue vigente y no hace falta pedir otro.
+        </mt-alert>
+      }
+
       <div card-footer class="step-actions">
         <span class="step-actions__hint">Código: {{ solicitud()?.codigoSolicitud }}</span>
-        <mt-button (click)="finalizar()">Confirmar y enviar</mt-button>
+        <mt-button (click)="finalizar()" [disabled]="correoTitularPendienteDeVerificar()">Confirmar y enviar</mt-button>
       </div>
     </mt-card>
   }
