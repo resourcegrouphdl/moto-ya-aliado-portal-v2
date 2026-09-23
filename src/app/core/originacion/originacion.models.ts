@@ -416,9 +416,7 @@ export const DOCUMENTOS_TITULAR: { tipo: TipoDocumentoSolicitud; label: string }
   { tipo: 'OTRO_2', label: 'Otro documento (2)' }
 ];
 
-export const DOCUMENTOS_AVALISTA: { tipo: TipoDocumentoSolicitud; label: string }[] = DOCUMENTOS_TITULAR.filter(
-  (d) => d.tipo !== 'SELFIE'
-);
+export const DOCUMENTOS_AVALISTA: { tipo: TipoDocumentoSolicitud; label: string }[] = [...DOCUMENTOS_TITULAR]; // DEC-031: el aval también da fachada + selfie en la puerta
 
 /**
  * Verificación de domicilio (etapa 5 de originación, DEC-030) — espeja
@@ -448,7 +446,7 @@ export interface VerificacionDomicilioResponse {
   solicitudId: string;
   clienteId: string;
   estado: EstadoVerificacionDomicilio;
-  /** Informativa: alguna foto quedó a más de 200 m del domicilio declarado. Nunca bloquea nada (DEC-030). */
+  /** Informativa: alguna foto quedó a más de 100 m del domicilio declarado. Nunca bloquea nada (DEC-030). */
   alertaDistancia: boolean;
   venceEn: string;
   /** Null si el aviso no llegó a salir (canal caído) — el asesor puede verlo y reenviar a mano. */
