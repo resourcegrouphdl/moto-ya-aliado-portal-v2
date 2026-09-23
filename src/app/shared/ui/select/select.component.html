@@ -40,27 +40,41 @@
   (backdropClick)="close()"
   (detach)="close()"
 >
-  <ul
-    class="mt-select__panel"
-    role="listbox"
-    tabindex="-1"
-    (keydown)="onPanelKeydown($event)"
-  >
-    @for (option of options(); track option.label; let i = $index) {
-      <li
-        role="option"
-        [attr.aria-selected]="option.value === value()"
-        class="mt-select__option"
-        [class.mt-select__option--highlighted]="i === highlightedIndex()"
-        [class.mt-select__option--selected]="option.value === value()"
-        (click)="select(option)"
-        (mouseenter)="highlightedIndex.set(i)"
-      >
-        @if (option.value === value()) {
-          <mt-icon name="check" [size]="16" />
-        }
-        <span>{{ option.label }}</span>
-      </li>
+  <div class="mt-select__panel" (keydown)="onPanelKeydown($event)">
+    @if (buscable()) {
+      <div class="mt-select__buscador">
+        <mt-icon name="search" [size]="18" />
+        <input
+          #buscador
+          type="text"
+          class="mt-select__buscador-input"
+          [placeholder]="placeholderBusqueda()"
+          [value]="filtro()"
+          autocomplete="off"
+          (input)="onFiltroInput($event)"
+        />
+      </div>
     }
-  </ul>
+    <ul class="mt-select__lista" role="listbox" tabindex="-1">
+      @for (option of opcionesVisibles(); track option.label; let i = $index) {
+        <li
+          role="option"
+          [attr.aria-selected]="option.value === value()"
+          class="mt-select__option"
+          [class.mt-select__option--highlighted]="i === highlightedIndex()"
+          [class.mt-select__option--selected]="option.value === value()"
+          (click)="select(option)"
+          (mouseenter)="highlightedIndex.set(i)"
+        >
+          @if (option.value === value()) {
+            <mt-icon name="check" [size]="16" />
+          }
+          <span>{{ option.label }}</span>
+        </li>
+      }
+      @if (sinResultados()) {
+        <li class="mt-select__vacio">Sin resultados para «{{ filtro() }}»</li>
+      }
+    </ul>
+  </div>
 </ng-template>

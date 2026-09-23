@@ -3,8 +3,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  Injector,
+  afterNextRender,
+  booleanAttribute,
   computed,
   forwardRef,
+  inject,
   input,
   signal,
   viewChild
@@ -46,17 +50,38 @@ export class SelectComponent<T = unknown> implements ControlValueAccessor {
   options = input.required<SelectOption<T>[]>();
   errorMessage = input<string>();
   hint = input<string>();
+  /**
+   * Muestra un buscador arriba del panel (2026-09-23, cascada de ubigeo): con listas largas — los 1892 distritos
+   * del catálogo — desplazarse a dedo no es viable. Filtra por `label`, ignorando tildes y mayúsculas.
+   */
+  buscable = input(false, { transform: booleanAttribute });
+  /** Texto del placeholder del buscador (solo si `buscable`). */
+  placeholderBusqueda = input('Buscar');
 
   protected open = signal(false);
   protected value = signal<T | null>(null);
   protected disabled = signal(false);
   protected highlightedIndex = signal(0);
   protected triggerWidth = signal(240);
+  protected filtro = signal('');
 
   private triggerRef = viewChild<ElementRef<HTMLButtonElement>>('trigger');
+  private buscadorRef = viewChild<ElementRef<HTMLInputElement>>('buscador');
+  private readonly injector = inject(Injector);
 
   protected selectedOption = computed(() => this.options().find((o) => o.value === this.value()) ?? null);
   protected hasValue = computed(() => this.selectedOption() !== null);
+
+  /** Con buscador activo, solo las opciones que matchean el filtro (el índice resaltado vive sobre esta lista). */
+  protected opcionesVisibles = computed(() => {
+    const termino = normalizar(this.filtro());
+    const opciones = this.options();
+    if (!this.buscable() || termino === '') return opciones;
+    return opciones.filter((o) => normalizar(o.label).includes(termino));
+  });
+
+  /** Sin resultados es un estado propio: el panel lo dice en vez de quedar vacío. */
+  protected sinResultados = computed(() => this.opcionesVisibles().length === 0);
 
   private onChange: (value: T) => void = () => {};
   private onTouched: () => void = () => {};
@@ -65,15 +90,17 @@ export class SelectComponent<T = unknown> implements ControlValueAccessor {
     if (this.disabled()) return;
     this.open.update((v) => !v);
     if (this.open()) {
-      const idx = this.options().findIndex((o) => o.value === this.value());
+      const idx = this.opcionesVisibles().findIndex((o) => o.value === this.value());
       this.highlightedIndex.set(idx >= 0 ? idx : 0);
       const width = this.triggerRef()?.nativeElement.offsetWidth;
       if (width) this.triggerWidth.set(width);
+      this.enfocarBuscador();
     }
   }
 
   close(): void {
     this.open.set(false);
+    this.filtro.set('');
     this.onTouched();
   }
 
@@ -81,6 +108,23 @@ export class SelectComponent<T = unknown> implements ControlValueAccessor {
     this.value.set(option.value);
     this.onChange(option.value);
     this.close();
+  }
+
+  onFiltroInput(event: Event): void {
+    this.filtro.set((event.target as HTMLInputElement).value);
+    // Al filtrar, el resaltado vuelve arriba: Enter elige la primera coincidencia.
+    this.highlightedIndex.set(0);
+  }
+
+  /**
+   * Deja el cursor listo en el buscador al abrir el panel: quien abre un select de 1890 distritos viene a escribir.
+   * Se hace con `afterNextRender` y no en el evento de apertura del overlay: el contenido del panel todavía no
+   * existe cuando el overlay avisa que se adjuntó (`viewChild` vacío), y con un `setTimeout` la carrera se pierde
+   * igual — el navegador confirmó que el input queda sin foco (2026-09-23).
+   */
+  enfocarBuscador(): void {
+    if (!this.buscable()) return;
+    afterNextRender(() => this.buscadorRef()?.nativeElement.focus(), { injector: this.injector });
   }
 
   onTriggerKeydown(event: KeyboardEvent): void {
@@ -91,7 +135,7 @@ export class SelectComponent<T = unknown> implements ControlValueAccessor {
   }
 
   onPanelKeydown(event: KeyboardEvent): void {
-    const options = this.options();
+    const options = this.opcionesVisibles();
     switch (event.key) {
       case 'ArrowDown':
         event.preventDefault();
@@ -127,4 +171,13 @@ export class SelectComponent<T = unknown> implements ControlValueAccessor {
   setDisabledState(isDisabled: boolean): void {
     this.disabled.set(isDisabled);
   }
+}
+
+/** Compara sin tildes y sin mayúsculas: quien busca escribe "jesus maria" o "Jesus María", no "JESUS MARIA". */
+function normalizar(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim()
+    .toLowerCase();
 }

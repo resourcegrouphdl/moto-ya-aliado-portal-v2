@@ -1,0 +1,43 @@
+:host {
+  display: block;
+}
+
+/**
+ * Los tres selects van en una fila en pantalla ancha (se leen como una sola dirección) y apilados en móvil. El
+ * ancho mínimo de cada uno evita que "SAN JUAN DE LURIGANCHO" corte el texto a la mitad.
+ */
+.mt-ubigeo {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+
+  @media (min-width: 720px) {
+    grid-template-columns: 1.2fr 1fr 1.2fr;
+  }
+}
+
+.mt-ubigeo__nota {
+  margin-top: var(--space-2);
+  padding-left: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+
+  strong {
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  &--error {
+    color: var(--color-error);
+  }
+}
+
+.mt-ubigeo__reintentar {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}

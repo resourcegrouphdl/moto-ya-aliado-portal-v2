@@ -37,7 +37,7 @@
 }
 
 // El panel vive fuera del :host (CDK lo proyecta al overlay container),
-// así que necesita ::ng-deep — acotado a esta sola clase, no se filtra al resto.
+// así que necesita ::ng-deep — acotado a estas clases, no se filtra al resto.
 ::ng-deep .mt-select__panel {
   max-height: 280px;
   overflow-y: auto;
@@ -49,6 +49,55 @@
 
   @include m.custom-scrollbar;
   @include motion.scale-in(var(--duration-base));
+}
+
+/**
+ * Buscador del panel (2026-09-23, cascada de ubigeo): con listas largas — los 1892 distritos del catálogo — hay
+ * que poder acotar escribiendo. Queda pegado arriba mientras la lista se desplaza, con una línea que lo separa
+ * del primer ítem (sin animación propia: escribir es una acción de teclado y se repite todo el tiempo).
+ */
+::ng-deep .mt-select__buscador {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: calc(var(--space-2) * -1);
+  margin-bottom: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+::ng-deep .mt-select__buscador-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+
+  &::placeholder {
+    color: var(--color-text-muted);
+  }
+}
+
+::ng-deep .mt-select__lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/** Estado vacío con nombre y apellido: decir qué se buscó evita la duda de "¿se trabó o no hay?". */
+::ng-deep .mt-select__vacio {
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-align: center;
 }
 
 ::ng-deep .mt-select__option {
@@ -74,5 +123,10 @@
 
   &--selected {
     font-weight: 600;
+  }
+
+  // Respuesta al clic: el ítem se marca en el instante en que se suelta el dedo/el mouse.
+  &:active {
+    background: var(--color-surface-hover);
   }
 }

@@ -1,9 +1,23 @@
 @switch (estado()) {
+  @case ('consultando') {
+    <span class="verificacion-email__hint">Consultando el estado del correo…</span>
+  }
   @case ('inicial') {
-    <mt-button type="button" variant="secondary" size="sm" (click)="enviarCodigo()">
+    <mt-button
+      type="button"
+      variant="secondary"
+      size="sm"
+      [disabled]="cooldown() > 0 || limitePorHora()"
+      (click)="enviarCodigo()"
+    >
       <mt-icon name="mail" [size]="16" />
-      Verificar correo
+      {{ cooldown() > 0 ? 'Reenviar en ' + cooldown() + 's' : 'Verificar correo' }}
     </mt-button>
+    @if (limitePorHora()) {
+      <p class="verificacion-email__hint">
+        Se alcanzó el límite de códigos para este correo. Intenta de nuevo en una hora.
+      </p>
+    }
   }
   @case ('enviando') {
     <mt-button type="button" variant="secondary" size="sm" [loading]="true" [disabled]="true">Enviando código…</mt-button>
@@ -21,11 +35,18 @@
         (input)="onCodigoInput($any($event.target).value)"
       />
       <mt-button type="button" size="sm" [disabled]="codigo().length !== 6" (click)="confirmarCodigo()">Confirmar</mt-button>
-      <button type="button" class="verificacion-email__reenviar" [disabled]="cooldown() > 0" (click)="enviarCodigo()">
+      <button
+        type="button"
+        class="verificacion-email__reenviar"
+        [disabled]="cooldown() > 0 || limitePorHora()"
+        (click)="enviarCodigo()"
+      >
         {{ cooldown() > 0 ? 'Reenviar en ' + cooldown() + 's' : 'Reenviar código' }}
       </button>
     </div>
-    <p class="verificacion-email__hint">Enviamos un código a {{ email() }}. Vence en 15 minutos.</p>
+    <p class="verificacion-email__hint">
+      Enviamos un código a {{ email() }}. Vence en {{ vencimientoTexto() }}.
+    </p>
   }
   @case ('verificando') {
     <mt-button type="button" size="sm" [loading]="true" [disabled]="true">Verificando…</mt-button>

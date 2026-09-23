@@ -1,0 +1,42 @@
+<div class="mt-ubigeo" (focusout)="marcarTocado()">
+  <mt-select
+    [formControl]="controlDepartamento"
+    label="Departamento"
+    [options]="opcionesDepartamentos()"
+  />
+  <mt-select
+    [formControl]="controlProvincia"
+    label="Provincia"
+    [options]="opcionesProvincias()"
+    [hint]="hintProvincia()"
+  />
+  <mt-select
+    [formControl]="controlDistrito"
+    buscable
+    label="Distrito"
+    [options]="opcionesDistritos()"
+    [hint]="hintDistrito()"
+  />
+</div>
+
+@if (cargando()) {
+  <p class="mt-ubigeo__nota">Cargando el catálogo de distritos…</p>
+}
+
+@if (falloCarga()) {
+  <p class="mt-ubigeo__nota mt-ubigeo__nota--error">
+    No se pudo cargar el catálogo de distritos.
+    <button type="button" class="mt-ubigeo__reintentar" (click)="reintentar()">Reintentar</button>
+  </p>
+}
+
+@if (errorMessage()) {
+  <p class="mt-ubigeo__nota mt-ubigeo__nota--error">{{ errorMessage() }}</p>
+}
+
+@if (ubicacionGuardada(); as guardada) {
+  <p class="mt-ubigeo__nota">
+    Guardado antes de esta versión: <strong>{{ guardada.distrito }}{{ guardada.provincia ? ', ' + guardada.provincia : '' }}{{ guardada.departamento ? ', ' + guardada.departamento : '' }}</strong>.
+    No es un distrito del catálogo — elige el distrito para actualizarlo.
+  </p>
+}

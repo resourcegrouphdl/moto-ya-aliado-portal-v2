@@ -72,10 +72,14 @@ export interface CrearClienteRequest {
   apellidoMaterno: string;
   telefono?: string;
   email?: string;
-  departamento?: string;
-  provincia?: string;
-  distrito?: string;
-  direccion?: string;
+  departamento?: string | null;
+  provincia?: string | null;
+  distrito?: string | null;
+  /** Código INEI de 6 dígitos del distrito elegido en la cascada — la entrada autoritativa de la ubicación (el backend resuelve los nombres). */
+  ubigeoDistrito?: string | null;
+  direccion?: string | null;
+  /** Cómo ubicar la vivienda ("frente al parque, casa azul") — opcional. */
+  referencia?: string | null;
   latitud?: number | null;
   longitud?: number | null;
   /** Sugerencia de Google al marcar el pin en el mapa — nunca se usa en documentos generados, solo para uso futuro. */
@@ -97,7 +101,10 @@ export interface ClienteResponse {
   departamento: string | null;
   provincia: string | null;
   distrito: string | null;
+  /** Código INEI de 6 dígitos del distrito (null en las direcciones capturadas antes de la cascada). */
+  ubigeoDistrito: string | null;
   direccion: string | null;
+  referencia: string | null;
   latitud: number | null;
   longitud: number | null;
   /** Sugerencia de Google al marcar el pin en el mapa — nunca se usa en documentos generados, solo para uso futuro. */
@@ -116,7 +123,9 @@ export interface ActualizarDireccionRequest {
   departamento?: string | null;
   provincia?: string | null;
   distrito?: string | null;
+  ubigeoDistrito?: string | null;
   direccion?: string | null;
+  referencia?: string | null;
   latitud?: number | null;
   longitud?: number | null;
   direccionSugerida?: string | null;
@@ -126,6 +135,20 @@ export interface ActualizarDireccionRequest {
 }
 
 /** Respuesta de /partner/originacion/lookup/dni/{numero} y .../lookup/cee/{numero} — mismos 4 campos en ambos. */
+/**
+ * GET /originacion/verificacion-email/estado — estado del código de verificación de un correo (2026-09-23, etapa 2
+ * del plan de originación). Los segundos vienen del servidor a propósito: el frontend solo pinta la cuenta regresiva.
+ */
+export interface EstadoVerificacionEmail {
+  verificado: boolean;
+  vigente: boolean;
+  segundosRestantes: number;
+  intentosRestantes: number;
+  puedeReenviar: boolean;
+  segundosParaReenviar: number;
+  limitePorHoraAlcanzado: boolean;
+}
+
 export interface ConsultaDniResponse {
   numero: string;
   nombres: string;
@@ -375,9 +398,14 @@ export const ESTADO_DOCUMENTO_SOLICITUD_BADGE_VARIANT: Record<EstadoDocumentoSol
 };
 
 /** Slots de documentos por rol — SELFIE solo aplica a TITULAR (el aval no la requiere). */
+/**
+ * Slots de documentos que el wizard del vendedor ofrece para subir a mano. **Sin DNI**: la foto del DNI entra por el
+ * flujo con OCR (`mt-documento-identidad-upload`), que además la registra como `DNI_FRENTE` — ofrecerla también acá
+ * era el duplicado que se eliminó en la etapa 3 (2026-09-23). Los tipos `DNI_FRENTE`/`DNI_REVERSO` siguen existiendo
+ * en el catálogo: los usan los documentos ya subidos y el «reemplazar» del analista en admin-v2 (que sí conserva sus
+ * slots, porque ahí no hay bloque de OCR y es la única vía para reemplazar un DNI observado).
+ */
 export const DOCUMENTOS_TITULAR: { tipo: TipoDocumentoSolicitud; label: string }[] = [
-  { tipo: 'DNI_FRENTE', label: 'DNI — frente' },
-  { tipo: 'DNI_REVERSO', label: 'DNI — reverso' },
   { tipo: 'LICENCIA_FRENTE', label: 'Licencia de conducir — frente' },
   { tipo: 'LICENCIA_REVERSO', label: 'Licencia de conducir — reverso' },
   { tipo: 'SELFIE', label: 'Selfie' },
@@ -388,6 +416,62 @@ export const DOCUMENTOS_TITULAR: { tipo: TipoDocumentoSolicitud; label: string }
   { tipo: 'OTRO_2', label: 'Otro documento (2)' }
 ];
 
-export const DOCUMENTOS_AVALISTA: { tipo: TipoDocumentoSolicitud; label: string }[] = DOCUMENTOS_TITULAR.filter(
-  (d) => d.tipo !== 'SELFIE'
-);
+export const DOCUMENTOS_AVALISTA: { tipo: TipoDocumentoSolicitud; label: string }[] = [...DOCUMENTOS_TITULAR]; // DEC-031: el aval también da fachada + selfie en la puerta
+
+/**
+ * Verificación de domicilio (etapa 5 de originación, DEC-030) — espeja
+ * com.motoya.api.originacion.infrastructure.adapter.in.web.VerificacionDomicilioResponse.
+ *
+ * Al entrar la solicitud se le manda al titular un link por WhatsApp (una sola vez, automático, dura 48 h) para que
+ * suba dos fotos etiquetadas de su domicilio. El `GET` responde 404 mientras esa solicitud no tenga verificación: no
+ * es un error, es "todavía no se le pidió el link".
+ */
+export type EstadoVerificacionDomicilio = 'VIGENTE' | 'USADA' | 'VENCIDA';
+export type TipoFotoVerificacionDomicilio = 'FACHADA' | 'SELFIE';
+
+export interface FotoVerificacionDomicilioResponse {
+  tipo: TipoFotoVerificacionDomicilio;
+  url: string;
+  /** Null cuando el cliente no dio permiso de ubicación — la foto se sube igual, sin GPS. */
+  latitud: number | null;
+  longitud: number | null;
+  precisionMetros: number | null;
+  /** Distancia a la dirección declarada; null si la foto no trae coordenadas. */
+  distanciaMetros: number | null;
+  capturadaEn: string | null;
+}
+
+export interface VerificacionDomicilioResponse {
+  id: string;
+  solicitudId: string;
+  clienteId: string;
+  estado: EstadoVerificacionDomicilio;
+  /** Informativa: alguna foto quedó a más de 100 m del domicilio declarado. Nunca bloquea nada (DEC-030). */
+  alertaDistancia: boolean;
+  venceEn: string;
+  /** Null si el aviso no llegó a salir (canal caído) — el asesor puede verlo y reenviar a mano. */
+  enviadaEn: string | null;
+  usadaEn: string | null;
+  /** Quién autorizó el último reenvío; null cuando el link salió solo (envío automático). */
+  reenviadaPor: string | null;
+  creadoEn: string;
+  fotos: FotoVerificacionDomicilioResponse[];
+}
+
+export const ESTADO_VERIFICACION_DOMICILIO_LABEL: Record<EstadoVerificacionDomicilio, string> = {
+  VIGENTE: 'Pendiente',
+  USADA: 'Completada',
+  VENCIDA: 'Vencida o reemplazada'
+};
+
+export const ESTADO_VERIFICACION_DOMICILIO_BADGE_VARIANT: Record<EstadoVerificacionDomicilio, BadgeVariant> = {
+  VIGENTE: 'info',
+  USADA: 'success',
+  VENCIDA: 'warning'
+};
+
+/** Nombre visible de cada foto — el nombre técnico (FACHADA/SELFIE) no dice nada en la pantalla. */
+export const TIPO_FOTO_VERIFICACION_DOMICILIO_LABEL: Record<TipoFotoVerificacionDomicilio, string> = {
+  FACHADA: 'Fachada',
+  SELFIE: 'Selfie en la puerta'
+};
