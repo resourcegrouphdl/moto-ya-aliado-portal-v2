@@ -44,3 +44,8 @@ Thumbs.db
 # Firebase CLI local cache (hashes de deploy, no versionar)
 .firebase/
 *.log
+
+# Salidas de herramientas locales
+graphify-out/
+.playwright-cli/
+*.log
