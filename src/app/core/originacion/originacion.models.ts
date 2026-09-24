@@ -416,62 +416,8 @@ export const DOCUMENTOS_TITULAR: { tipo: TipoDocumentoSolicitud; label: string }
   { tipo: 'OTRO_2', label: 'Otro documento (2)' }
 ];
 
-export const DOCUMENTOS_AVALISTA: { tipo: TipoDocumentoSolicitud; label: string }[] = [...DOCUMENTOS_TITULAR]; // DEC-031: el aval también da fachada + selfie en la puerta
+export const DOCUMENTOS_AVALISTA: { tipo: TipoDocumentoSolicitud; label: string }[] = DOCUMENTOS_TITULAR.filter(
+  // DEC-033: la selfie del aval la toma él mismo por el enlace de verificación; el aliado no la sube.
+  (d) => d.tipo !== 'SELFIE'
+);
 
-/**
- * Verificación de domicilio (etapa 5 de originación, DEC-030) — espeja
- * com.motoya.api.originacion.infrastructure.adapter.in.web.VerificacionDomicilioResponse.
- *
- * Al entrar la solicitud se le manda al titular un link por WhatsApp (una sola vez, automático, dura 48 h) para que
- * suba dos fotos etiquetadas de su domicilio. El `GET` responde 404 mientras esa solicitud no tenga verificación: no
- * es un error, es "todavía no se le pidió el link".
- */
-export type EstadoVerificacionDomicilio = 'VIGENTE' | 'USADA' | 'VENCIDA';
-export type TipoFotoVerificacionDomicilio = 'FACHADA' | 'SELFIE';
-
-export interface FotoVerificacionDomicilioResponse {
-  tipo: TipoFotoVerificacionDomicilio;
-  url: string;
-  /** Null cuando el cliente no dio permiso de ubicación — la foto se sube igual, sin GPS. */
-  latitud: number | null;
-  longitud: number | null;
-  precisionMetros: number | null;
-  /** Distancia a la dirección declarada; null si la foto no trae coordenadas. */
-  distanciaMetros: number | null;
-  capturadaEn: string | null;
-}
-
-export interface VerificacionDomicilioResponse {
-  id: string;
-  solicitudId: string;
-  clienteId: string;
-  estado: EstadoVerificacionDomicilio;
-  /** Informativa: alguna foto quedó a más de 100 m del domicilio declarado. Nunca bloquea nada (DEC-030). */
-  alertaDistancia: boolean;
-  venceEn: string;
-  /** Null si el aviso no llegó a salir (canal caído) — el asesor puede verlo y reenviar a mano. */
-  enviadaEn: string | null;
-  usadaEn: string | null;
-  /** Quién autorizó el último reenvío; null cuando el link salió solo (envío automático). */
-  reenviadaPor: string | null;
-  creadoEn: string;
-  fotos: FotoVerificacionDomicilioResponse[];
-}
-
-export const ESTADO_VERIFICACION_DOMICILIO_LABEL: Record<EstadoVerificacionDomicilio, string> = {
-  VIGENTE: 'Pendiente',
-  USADA: 'Completada',
-  VENCIDA: 'Vencida o reemplazada'
-};
-
-export const ESTADO_VERIFICACION_DOMICILIO_BADGE_VARIANT: Record<EstadoVerificacionDomicilio, BadgeVariant> = {
-  VIGENTE: 'info',
-  USADA: 'success',
-  VENCIDA: 'warning'
-};
-
-/** Nombre visible de cada foto — el nombre técnico (FACHADA/SELFIE) no dice nada en la pantalla. */
-export const TIPO_FOTO_VERIFICACION_DOMICILIO_LABEL: Record<TipoFotoVerificacionDomicilio, string> = {
-  FACHADA: 'Fachada',
-  SELFIE: 'Selfie en la puerta'
-};

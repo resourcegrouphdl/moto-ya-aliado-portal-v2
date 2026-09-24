@@ -26,8 +26,7 @@ import {
   SolicitudSubidaDocumentoSolicitud,
   TipoDocumentoIdentidad,
   TipoDocumentoSolicitud,
-  VehiculoSolicitudResponse,
-  VerificacionDomicilioResponse
+  VehiculoSolicitudResponse
 } from './originacion.models';
 
 /**
@@ -179,25 +178,6 @@ export class OriginacionApiService {
   }
 
   // ── Verificación de domicilio (etapa 5 de originación, DEC-030) ──────────
-
-  /**
-   * 404 si esa solicitud todavía no tiene verificación de domicilio (nunca se le pidió el link) — es un caso normal,
-   * el caller lo trata como "sin verificación" y ofrece el botón de reenviar igual.
-   */
-  obtenerVerificacionDomicilio(solicitudId: string): Observable<VerificacionDomicilioResponse> {
-    return this.http.get<VerificacionDomicilioResponse>(`${this.base}/solicitudes/${solicitudId}/verificacion-domicilio`);
-  }
-
-  /**
-   * Reenvío del link a pedido expreso del titular (DEC-030): reemplaza el link anterior —deja de funcionar— y el
-   * backend registra quién lo autorizó (`reenviadaPor`, resuelto desde la sesión).
-   *
-   * `clienteId` es opcional: sin él el backend se lo manda al titular de la solicitud, y ese es justo el caso de una
-   * solicitud que nunca fue invitada — no hay nada que reenviar, este POST crea la primera.
-   */
-  reenviarVerificacionDomicilio(solicitudId: string, clienteId?: string): Observable<VerificacionDomicilioResponse> {
-    return this.http.post<VerificacionDomicilioResponse>(`${this.base}/solicitudes/${solicitudId}/verificacion-domicilio/reenviar`, clienteId ? { clienteId } : null);
-  }
 
   // ── OCR de identidad (staging, sin solicitudId — ver DocumentoIdentidadUploadComponent) ──
 
