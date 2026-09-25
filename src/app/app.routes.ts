@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard, publicGuard, rolGuard } from './core/auth/auth.guard';
+import { ROLES_VENDEDOR } from './core/auth/rol.model';
 import { ShellComponent } from './core/layout/shell/shell.component';
 import { HomeRedirectComponent } from './core/layout/home-redirect/home-redirect.component';
 
@@ -58,34 +59,34 @@ export const routes: Routes = [
       {
         path: 'ejecutivo/clientes',
         canActivate: [rolGuard],
-        data: { allowedRoles: ['EJECUTIVO_ALIADO'] },
+        data: { allowedRoles: ROLES_VENDEDOR },
         loadComponent: () => import('./features/ejecutivo/pages/clientes/clientes.component').then((m) => m.ClientesComponent)
       },
       {
         path: 'ejecutivo/solicitud',
         canActivate: [rolGuard],
-        data: { allowedRoles: ['EJECUTIVO_ALIADO'] },
+        data: { allowedRoles: ROLES_VENDEDOR },
         loadComponent: () =>
           import('./features/ejecutivo/pages/solicitud/solicitud.component').then((m) => m.SolicitudComponent)
       },
       {
         path: 'ejecutivo/solicitud/:id/continuar',
         canActivate: [rolGuard],
-        data: { allowedRoles: ['EJECUTIVO_ALIADO'] },
+        data: { allowedRoles: ROLES_VENDEDOR },
         loadComponent: () =>
           import('./features/ejecutivo/pages/solicitud/solicitud.component').then((m) => m.SolicitudComponent)
       },
       {
         path: 'ejecutivo/solicitud/:id',
         canActivate: [rolGuard],
-        data: { allowedRoles: ['EJECUTIVO_ALIADO'] },
+        data: { allowedRoles: ROLES_VENDEDOR },
         loadComponent: () =>
           import('./features/ejecutivo/pages/solicitud-detail/solicitud-detail.component').then((m) => m.SolicitudDetailComponent)
       },
       {
         path: 'ejecutivo/calculadora',
         canActivate: [rolGuard],
-        data: { allowedRoles: ['EJECUTIVO_ALIADO'] },
+        data: { allowedRoles: ROLES_VENDEDOR },
         loadComponent: () =>
           import('./features/ejecutivo/pages/calculadora/calculadora.component').then((m) => m.CalculadoraComponent)
       },
