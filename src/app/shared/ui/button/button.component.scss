@@ -32,8 +32,10 @@
   }
 
   // Elevación + microanimación al hover (Emil: sutil, <300ms, nunca layout).
-  &:not(:disabled):hover {
-    transform: translateY(-1px);
+  @media (hover: hover) and (pointer: fine) {
+    &:not(:disabled):hover {
+      transform: translateY(-1px);
+    }
   }
 
   &:not(:disabled):active {
@@ -72,15 +74,27 @@
     }
   }
 
+  // Pantallas táctiles: nunca por debajo de una zona cómoda de toque.
+  @media (pointer: coarse) {
+    &--sm {
+      min-height: 40px;
+    }
+    &--md {
+      min-height: var(--tap-min);
+    }
+  }
+
   // ---- Variantes ----------------------------------------------------------
   &--primary {
-    background: var(--color-primary);
+    background: var(--gradient-primary);
     color: var(--color-text-inverse);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-primary);
 
-    &:not(:disabled):hover {
-      background: var(--color-primary-hover);
-      box-shadow: var(--shadow-md);
+    @media (hover: hover) and (pointer: fine) {
+      &:not(:disabled):hover {
+        background: var(--color-primary-hover);
+        box-shadow: var(--shadow-md);
+      }
     }
   }
 
@@ -89,9 +103,11 @@
     color: var(--color-text);
     box-shadow: var(--shadow-sm);
 
-    &:not(:disabled):hover {
-      background: var(--color-surface-hover);
-      box-shadow: var(--shadow-md);
+    @media (hover: hover) and (pointer: fine) {
+      &:not(:disabled):hover {
+        background: var(--color-surface-hover);
+        box-shadow: var(--shadow-md);
+      }
     }
   }
 
@@ -99,9 +115,11 @@
     background: transparent;
     color: var(--color-text-muted);
 
-    &:not(:disabled):hover {
-      background: var(--color-primary-subtle);
-      color: var(--color-primary-hover);
+    @media (hover: hover) and (pointer: fine) {
+      &:not(:disabled):hover {
+        background: var(--color-primary-subtle);
+        color: var(--color-primary-hover);
+      }
     }
   }
 
@@ -110,9 +128,11 @@
     color: var(--color-text-inverse);
     box-shadow: var(--shadow-sm);
 
-    &:not(:disabled):hover {
-      background: color-mix(in srgb, var(--color-error) 88%, black);
-      box-shadow: var(--shadow-md);
+    @media (hover: hover) and (pointer: fine) {
+      &:not(:disabled):hover {
+        background: color-mix(in srgb, var(--color-error) 88%, black);
+        box-shadow: var(--shadow-md);
+      }
     }
   }
 }
@@ -143,5 +163,23 @@
 @keyframes mt-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+// Celular: un botón con texto largo («Sincronizar con SIGAN FE», «Registrar venta presencial») partía la página a lo ancho porque no se
+// podía envolver. Aquí el texto pasa a dos líneas y el botón nunca es más ancho que su contenedor.
+@media (max-width: 640px) {
+  :host {
+    max-width: 100%;
+  }
+
+  .mt-button {
+    max-width: 100%;
+    height: auto;
+    min-height: 40px;
+    padding-block: var(--space-2);
+    white-space: normal;
+    text-align: center;
+    line-height: 1.25;
   }
 }

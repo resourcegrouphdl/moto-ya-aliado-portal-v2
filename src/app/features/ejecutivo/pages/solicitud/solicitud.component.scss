@@ -314,8 +314,10 @@
   cursor: pointer;
   padding: 0;
 
-  &:hover {
-    color: var(--color-primary-hover);
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      color: var(--color-primary-hover);
+    }
   }
 
   &--action {

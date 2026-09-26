@@ -1,5 +1,5 @@
 @use '../../../../../styles/abstracts/motion' as motion;
-@use '../../../../../styles/abstracts/tokens' as tokens;
+@use '../../../../../styles/abstracts/breakpoints' as tokens;
 
 :host {
   display: grid;

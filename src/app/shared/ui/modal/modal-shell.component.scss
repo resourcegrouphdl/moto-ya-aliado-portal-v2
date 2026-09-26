@@ -5,7 +5,7 @@
   display: flex;
   flex-direction: column;
   width: min(480px, 90vw);
-  max-height: 85vh;
+  max-height: min(85vh, 85dvh);
   border-radius: var(--radius-lg); // 18px, prompt maestro
   background: var(--color-surface);
   box-shadow: var(--shadow-lg);
@@ -41,9 +41,11 @@
 
   transition: background-color var(--duration-fast) var(--ease-out-soft), color var(--duration-fast) var(--ease-out-soft);
 
-  &:hover {
-    background: var(--color-bg);
-    color: var(--color-text);
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background: var(--color-bg);
+      color: var(--color-text);
+    }
   }
 }
 
@@ -64,5 +66,71 @@
 
   &:empty {
     display: none;
+  }
+}
+
+// Encabezado del modal: en móvil es una «hoja» que sube desde abajo, con asa de arrastre visual y el pie siempre a la vista.
+@media (max-width: 640px) {
+  :host,
+  :host(.mt-modal--lg) {
+    width: 100%;
+    max-width: 100vw;
+    max-height: 92dvh;
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -12px 40px -8px rgba(15, 23, 42, 0.35);
+  }
+
+  .mt-modal__header {
+    position: relative;
+    padding: var(--space-5) var(--space-4) var(--space-3);
+
+    // Asa: indica «esto es una hoja» (el cierre sigue siendo el botón X y tocar fuera).
+    &::before {
+      content: '';
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      width: 40px;
+      height: 4px;
+      border-radius: var(--radius-full);
+      background: var(--color-border-strong);
+      transform: translateX(-50%);
+    }
+
+    h3 {
+      font-size: var(--text-md);
+    }
+  }
+
+  .mt-modal__close {
+    width: var(--tap-min);
+    height: var(--tap-min);
+  }
+
+  .mt-modal__body {
+    padding: var(--space-4);
+    overscroll-behavior: contain; // el scroll del modal no arrastra la página de atrás
+  }
+
+  .mt-modal__footer {
+    padding: var(--space-3) var(--space-4) calc(var(--space-3) + var(--safe-bottom));
+    background: var(--color-surface);
+
+    // Botones a lo ancho, uno al lado del otro: la acción principal se alcanza con el pulgar.
+    ::ng-deep [modal-footer] {
+      display: flex;
+      width: 100%;
+      gap: var(--space-3);
+    }
+
+    ::ng-deep [modal-footer] mt-button {
+      flex: 1;
+      display: flex;
+    }
+
+    ::ng-deep [modal-footer] mt-button .mt-button {
+      width: 100%;
+      min-height: var(--tap-min);
+    }
   }
 }

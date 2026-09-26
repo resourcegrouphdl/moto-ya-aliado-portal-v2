@@ -14,12 +14,12 @@ $color-success: #10b981;
 $color-warning: #f59e0b;
 $color-error: #ef4444;
 
-$color-bg: #f8fafc;
+$color-bg: #f3f6fb;
 $color-surface: #ffffff;
 $color-sidebar: #0f172a;
 $color-text: #0f172a;
 $color-text-muted: #64748b;
-$color-border: #e2e8f0;
+$color-border: #e1e7f0;
 
 :root {
   // Marca
@@ -110,6 +110,39 @@ $color-border: #e2e8f0;
   --sidebar-width-collapsed: 76px;
   --navbar-height: 68px;
 
+  // Ciclo de vida de la moto y de cualquier tarea operativa — cada color significa UNA sola cosa en toda la app
+  // (pendiente = gris · en trabajo = ámbar · en revisión = violeta · listo = verde · rechazado/bloqueado = rojo · info = azul).
+  // Cada estado trae fondo suave + tinta oscura (contraste AA) + color pleno para iconos, líneas y anillos.
+  --st-pending: #64748b;
+  --st-pending-bg: #eef1f6;
+  --st-pending-ink: #475569;
+  --st-work: #f59e0b;
+  --st-work-bg: #fff4d6;
+  --st-work-ink: #8a5300;
+  --st-review: #7c3aed;
+  --st-review-bg: #f1eafe;
+  --st-review-ink: #5b21b6;
+  --st-ready: #16a34a;
+  --st-ready-bg: #e6f6ec;
+  --st-ready-ink: #0f6b31;
+  --st-danger: #dc2626;
+  --st-danger-bg: #fdecea;
+  --st-danger-ink: #a11a12;
+  --st-info: #2563eb;
+  --st-info-bg: #e8effe;
+  --st-info-ink: #1d4ed8;
+
+  // Botón principal con un poco de profundidad (degradado sutil + brillo superior) para que la acción se reconozca de un vistazo
+  --gradient-primary: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  --shadow-primary: 0 1px 0 rgba(255, 255, 255, 0.22) inset, 0 6px 14px -6px rgba(37, 99, 235, 0.55);
+
+  // Móvil: zona táctil mínima (Apple/Google recomiendan ≥ 44 px) y márgenes seguros (notch, barra de gestos)
+  --tap-min: 44px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
   // z-index
   --z-dropdown: 1000;
   --z-sticky: 1100;
@@ -118,10 +151,3 @@ $color-border: #e2e8f0;
   --z-toast: 1400;
   --z-tooltip: 1500;
 }
-
-// Breakpoints — SCSS-only (no se pueden usar custom properties en @media)
-$bp-sm: 480px;
-$bp-md: 768px;
-$bp-lg: 1024px;
-$bp-xl: 1280px;
-$bp-2xl: 1536px;

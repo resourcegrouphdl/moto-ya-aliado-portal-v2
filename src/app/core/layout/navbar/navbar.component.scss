@@ -26,8 +26,10 @@
   color: var(--color-text);
   cursor: pointer;
 
-  &:hover {
-    background: var(--color-surface-hover);
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background: var(--color-surface-hover);
+    }
   }
 
   @media (max-width: 767px) {
@@ -92,8 +94,10 @@
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-out-soft);
 
-  &:hover {
-    border-color: var(--color-text-muted);
-    color: var(--color-text);
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      border-color: var(--color-text-muted);
+      color: var(--color-text);
+    }
   }
 }
