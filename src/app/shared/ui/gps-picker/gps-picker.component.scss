@@ -51,8 +51,10 @@
   cursor: pointer;
   padding: 0;
 
-  &:hover {
-    color: var(--color-error);
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      color: var(--color-error);
+    }
   }
 }
 
@@ -127,8 +129,10 @@
   cursor: pointer;
   box-shadow: var(--shadow-sm);
 
-  &:hover {
-    background: var(--color-bg);
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background: var(--color-bg);
+    }
   }
 
   &--icon {
@@ -201,8 +205,10 @@
   color: var(--color-primary);
   cursor: pointer;
 
-  &:hover {
-    text-decoration: underline;
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      text-decoration: underline;
+    }
   }
 }
 

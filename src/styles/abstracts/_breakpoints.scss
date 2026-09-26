@@ -1,0 +1,9 @@
+// Breakpoints — SCSS-only (no se pueden usar custom properties en @media).
+// Viven aparte de _tokens.scss a propósito: `_mixins.scss` los usa y se importa desde CADA componente; si importara _tokens.scss,
+// el bloque :root con todas las variables CSS se copiaba dentro del CSS de cada componente (unos 4 kB por componente, y por eso
+// los presupuestos de tamaño de estilos saltaban). Ahora las variables se emiten una sola vez, en styles.scss.
+$bp-sm: 480px;
+$bp-md: 768px;
+$bp-lg: 1024px;
+$bp-xl: 1280px;
+$bp-2xl: 1536px;

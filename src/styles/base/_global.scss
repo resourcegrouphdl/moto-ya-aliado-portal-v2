@@ -42,6 +42,9 @@ textarea,
   word-wrap: normal;
   direction: ltr;
   display: inline-block;
+  width: 1em;
+  height: 1em;
+  overflow: hidden;
   font-variation-settings:
     'FILL' var(--icon-fill, 0),
     'wght' var(--icon-weight, 400),
@@ -90,5 +93,99 @@ textarea,
 
 .mt-overlay-backdrop-transparent {
   background: transparent;
+}
+
+// ---------------------------------------------------------------------------
+// Base móvil (skill mobile-native): lo que separa «una web en el navegador» de algo que se siente instalado.
+// ---------------------------------------------------------------------------
+html {
+  // El destello gris al tocar peleaba con el feedback de pulsación propio de cada componente (:active).
+  -webkit-tap-highlight-color: transparent;
+  // La app tiene su propio scroll: sin pull-to-refresh ni rebote de toda la página.
+  overscroll-behavior-y: none;
+}
+
+// Toque inmediato (sin la espera de doble-toque) y sin selección de texto al mantener presionado un control.
+button,
+a,
+[role='button'],
+[role='radio'],
+[role='tab'],
+select,
+summary,
+label[for] {
+  touch-action: manipulation;
+}
+
+button,
+[role='button'],
+[role='radio'],
+[role='tab'] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+// iOS hace zoom a cualquier campo con letra menor a 16 px y no vuelve solo: en pantallas táctiles, 16 px mínimo
+// (nunca se bloquea el zoom del usuario).
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+// El contenido de la página nunca puede ser más ancho que la pantalla: lo ancho (tablas) hace scroll o se apila dentro de su tarjeta.
+.mt-shell__content,
+mt-card {
+  min-width: 0;
+  max-width: 100%;
+}
+
+// Modal como «hoja» anclada abajo en celulares (ver mt-modal-shell): el contenedor del overlay la alinea al borde inferior.
+@media (max-width: 640px) {
+  .cdk-global-overlay-wrapper:has(> .mt-modal-panel) {
+    align-items: flex-end !important;
+    justify-content: center !important;
+  }
+
+  .mt-modal-panel {
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+}
+
+// Encabezado de página (título a la izquierda, acciones a la derecha): en el celular las acciones bajan de línea en vez de empujar la
+// página a lo ancho. Vale para todas las pantallas sin tocar una por una.
+@media (max-width: 640px) {
+  .mt-shell__content header:first-child {
+    flex-wrap: wrap;
+  }
+
+  .mt-shell__content header:first-child > :last-child:not(:first-child) {
+    flex-shrink: 1;
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+}
+
+// Pestañas (Pendientes / Aprobados / …): si no caben en el celular se desplazan dentro de su propia fila, sin ensanchar la página.
+@media (max-width: 640px) {
+  [role='tablist'],
+  [class$='__tabs'] {
+    overflow-x: auto;
+    max-width: 100%;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    > * {
+      flex-shrink: 0;
+    }
+  }
 }
 

@@ -64,8 +64,10 @@
     opacity var(--duration-fast) var(--ease-out-soft),
     background-color var(--duration-fast) var(--ease-out-soft);
 
-  &:hover {
-    opacity: 1;
-    background: color-mix(in srgb, currentColor 12%, transparent);
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      opacity: 1;
+      background: color-mix(in srgb, currentColor 12%, transparent);
+    }
   }
 }

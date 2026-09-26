@@ -79,9 +79,11 @@
   font-size: var(--text-sm);
   transition: background var(--duration-fast) var(--ease-out-soft);
 
-  &:hover {
-    background: var(--color-sidebar-hover);
-    color: #fff;
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background: var(--color-sidebar-hover);
+      color: #fff;
+    }
   }
 
   &--active {
