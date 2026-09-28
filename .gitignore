@@ -49,3 +49,7 @@ Thumbs.db
 graphify-out/
 .playwright-cli/
 *.log
+
+# E2E (Playwright) — artefactos de cada corrida, no se versionan.
+test-results/
+playwright-report/

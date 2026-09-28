@@ -376,6 +376,43 @@
         <p>Datos del vehículo que se va a financiar.</p>
       </div>
 
+      @if (esVentaInterna()) {
+        <div class="catalogo-interno">
+          <div class="catalogo-interno__header">
+            <mt-icon name="inventory_2" [size]="18" />
+            <span>Stock de Motoya</span>
+          </div>
+
+          @if (errorCatalogoModelos()) {
+            <p class="catalogo-interno__hint catalogo-interno__hint--error">
+              No se pudo cargar el catálogo de modelos.
+              <button type="button" class="link-button" (click)="cargarCatalogoInterno()">Reintentar</button>
+            </p>
+          } @else if (modelosCatalogo().length === 0) {
+            <p class="catalogo-interno__hint">No hay modelos en el catálogo todavía — completa los datos abajo a mano.</p>
+          } @else {
+            <!-- DEC-075: se elige en el selector de stock, que muestra las motos del modelo con su
+                 estado real (libre / en camino / reservada con su vencimiento). -->
+            @if (vinElegidoDelCatalogo()) {
+              <p class="catalogo-interno__seleccion">
+                <mt-icon name="check_circle" [size]="16" />
+                Moto elegida: <strong>{{ vinElegidoDelCatalogo() }}</strong>
+                @if (modeloElegido(); as modelo) {
+                  <span class="catalogo-interno__modelo">{{ modelo.marca }} {{ modelo.modelo }}</span>
+                }
+                — se reserva al guardar.
+                <button type="button" class="link-button" (click)="quitarSeleccionCatalogo()">Quitar</button>
+              </p>
+            }
+
+            <mt-button variant="secondary" (click)="abrirSelectorStock()">
+              <mt-icon name="inventory_2" [size]="18" />
+              {{ vinElegidoDelCatalogo() ? 'Cambiar moto' : 'Elegir moto del stock' }}
+            </mt-button>
+          }
+        </div>
+      }
+
       <form [formGroup]="formVehiculo" class="form-grid" (ngSubmit)="continuarVehiculo()">
         <mt-input class="span-6" label="Marca" formControlName="marca" icon="two_wheeler" />
         <mt-input class="span-6" label="Modelo" formControlName="modelo" />
