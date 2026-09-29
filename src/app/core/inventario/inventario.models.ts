@@ -22,7 +22,8 @@ export interface UnidadDisponible {
   modeloId: string | null;
   anioModelo: number | null;
   estadoComercial: 'DISPONIBLE' | 'RESERVADA' | 'VENDIDA' | 'BLOQUEADA';
-  /** `RECHAZADA` (V49) es la moto que llegó y se devolvió al origen: no es stock (auditoría #33). */
+  /** `RECHAZADA` (V49): la recepción se rechazó y la entrada quedó pendiente de recambio o subsanación
+   * — no es stock, pero tampoco una moto anulada (precisión del usuario, 2026-09-29). */
   estadoAbastecimiento: 'POR_RECIBIR' | 'RECIBIDA' | 'RECHAZADA';
   /** `null` mientras la moto no llegó: la ventana de la reserva arranca cuando llega (DEC-074). */
   reservaExpiraEn: string | null;
@@ -81,7 +82,7 @@ export function estadoDeStock(unidad: UnidadDisponible): string {
     return 'En camino';
   }
   if (!esStock(unidad)) {
-    return 'Devuelta al origen';
+    return 'Recepción rechazada';
   }
   return estaListaParaEntregar(unidad) ? 'Libre' : `En preparación (${situacionFisica(unidad)})`;
 }
