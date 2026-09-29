@@ -1,4 +1,18 @@
 <mt-modal-shell title="Elegir moto del stock de Motoya" (closeRequested)="close()">
+  @if (confirmando(); as pendiente) {
+    <!-- La moto elegida todavía no se puede entregar (auditoría 2026-09-28, #15): la venta se puede hacer, pero
+         el vendedor tiene que saberlo antes de prometerle una fecha al cliente. -->
+    <div class="mt-sel__confirmacion" data-paso="confirmacion">
+      <mt-alert variant="warning" title="Esta moto todavía no se puede entregar">
+        La {{ pendiente.vin }} está {{ situacionDe(pendiente) }}. La venta se puede hacer igual —queda reservada
+        para esta solicitud— y se va a poder entregar cuando termine el armado y el control de calidad.
+      </mt-alert>
+      <div class="mt-sel__confirmacion-acciones">
+        <mt-button variant="ghost" (click)="cancelarLaConfirmacion()">Elegir otra</mt-button>
+        <mt-button variant="primary" (click)="confirmarLaNoEntregable()">Continuar con esta moto</mt-button>
+      </div>
+    </div>
+  } @else {
   <p class="mt-sel__intro">
     Se puede elegir una moto <strong>libre</strong> o una <strong>en camino</strong> (ya está facturada
     al importador y llega igual: queda reservada para esta solicitud y su ventana de 48 h arranca
@@ -47,6 +61,7 @@
         </li>
       }
     </ul>
+  }
   }
 
   <div modal-footer>

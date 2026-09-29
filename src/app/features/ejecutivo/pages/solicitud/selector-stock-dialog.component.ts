@@ -12,6 +12,8 @@ import {
   ModeloCatalogo,
   UnidadDisponible,
   esElegible,
+  estaListaParaEntregar,
+  situacionFisica,
   estadoDeStock
 } from '../../../../core/inventario/inventario.models';
 import { InventarioApiService } from '../../../../core/inventario/inventario-api.service';
@@ -81,6 +83,8 @@ export class SelectorStockDialogComponent {
 
   protected readonly esElegible = esElegible;
   protected readonly estadoDeStock = estadoDeStock;
+  /** Puente para la plantilla: `situacionFisica` es del modelo y las plantillas solo ven miembros de la clase. */
+  protected readonly situacionDe = situacionFisica;
 
   constructor() {
     this.cargarModelos();
@@ -121,12 +125,16 @@ export class SelectorStockDialogComponent {
   }
 
   /**
-   * Primero lo que se puede elegir —y entre eso, las que ya están en el salón antes que las que
-   * vienen— y al final las reservadas. Vendidas y bloqueadas no se listan: no son una opción y
-   * ofrecerlas sería un error de venta.
+   * Primero lo que se puede elegir, en el orden en que conviene ofrecerlo: las que **ya se pueden entregar**,
+   * después las que están en el local pero todavía no, después las que vienen y al final las reservadas.
+   * Vendidas, bloqueadas y devueltas al origen no se listan: no son una opción y ofrecerlas sería un error.
    */
   private ordenar(unidades: UnidadDisponible[]): UnidadDisponible[] {
-    const peso = (u: UnidadDisponible) => (esElegible(u) ? (u.estadoAbastecimiento === 'POR_RECIBIR' ? 1 : 0) : 2);
+    const peso = (u: UnidadDisponible) => {
+      if (!esElegible(u)) return 3;
+      if (u.estadoAbastecimiento === 'POR_RECIBIR') return 2;
+      return estaListaParaEntregar(u) ? 0 : 1;
+    };
     return unidades
       .filter((u) => esElegible(u) || u.estadoComercial === 'RESERVADA')
       .sort((a, b) => peso(a) - peso(b) || a.vin.localeCompare(b.vin));
@@ -145,12 +153,38 @@ export class SelectorStockDialogComponent {
       this.aviso.set('Esa moto no tiene modelo del catálogo: no se puede usar en esta solicitud.');
       return;
     }
+    // La moto está en el local pero todavía no se entrega (auditoría 2026-09-28, #15): la venta se puede hacer
+    // —DEC-018, lo que se bloquea es la entrega— y el vendedor tiene que saberlo antes de prometerle una fecha
+    // al cliente. En este portal la confirmación es un paso explícito en el mismo diálogo.
+    if (!estaListaParaEntregar(unidad)) {
+      this.confirmando.set(unidad);
+      return;
+    }
     this.dialogRef.close({ unidad, modelo });
+  }
+
+  /** El paso de confirmación consciente: la moto elegida todavía no se puede entregar. */
+  protected readonly confirmando = signal<UnidadDisponible | null>(null);
+
+  protected confirmarLaNoEntregable(): void {
+    const unidad = this.confirmando();
+    if (!unidad) return;
+    const modelo = this.modelos().find((m) => m.id === unidad.modeloId);
+    if (!modelo) {
+      this.aviso.set('Esa moto no tiene modelo del catálogo: no se puede usar en esta solicitud.');
+      return;
+    }
+    this.dialogRef.close({ unidad, modelo });
+  }
+
+  protected cancelarLaConfirmacion(): void {
+    this.confirmando.set(null);
   }
 
   protected estadoBadge(unidad: UnidadDisponible): BadgeVariant {
     if (unidad.estadoComercial === 'RESERVADA') return 'warning';
-    return unidad.estadoAbastecimiento === 'POR_RECIBIR' ? 'info' : 'success';
+    // Verde solo lo que se puede entregar hoy; «info» lo demás, igual que «En camino»: hay trabajo pendiente.
+    return estaListaParaEntregar(unidad) ? 'success' : 'info';
   }
 
   /** Dónde está la moto, sin nombres de local (este portal no tiene esa lista): el tipo alcanza para

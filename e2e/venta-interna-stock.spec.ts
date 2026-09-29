@@ -67,6 +67,9 @@ function unidad(extra: Record<string, unknown>) {
     anioModelo: 2026,
     estadoComercial: 'DISPONIBLE',
     estadoAbastecimiento: 'RECIBIDA',
+    /** El trabajo físico, tal como lo devuelve la API (auditoría 2026-09-28, #15): sin este dato el portal
+     * pintaba de verde «Libre» una moto que todavía está en su caja. */
+    estadoOperativo: 'LISTA',
     reservaExpiraEn: null,
     ubicacionTipo: 'TIENDA',
     ubicacionRefId: '22222222-2222-2222-2222-222222222222',
@@ -75,12 +78,14 @@ function unidad(extra: Record<string, unknown>) {
 }
 
 const LIBRE = unidad({ vin: 'LF3PCLAE3TA000737' });
-const EN_CAMINO = unidad({ vin: 'LF3PCLAE3TA000888', estadoAbastecimiento: 'POR_RECIBIR' });
+const EN_CAMINO = unidad({ vin: 'LF3PCLAE3TA000888', estadoAbastecimiento: 'POR_RECIBIR', estadoOperativo: null });
 const RESERVADA = unidad({
   vin: 'LF3PCLAE3TA000999',
   estadoComercial: 'RESERVADA',
   reservaExpiraEn: enHoras(30)
 });
+/** En el local pero todavía en su caja: se puede vender y **no** se puede entregar todavía (#15). */
+const EN_CAJA = unidad({ vin: 'LF3PCLAE3TA000777', estadoOperativo: 'EN_CAJA' });
 
 /** Red del wizard: expediente del aliado + catálogo/stock de Motoya. */
 async function simular(page: import('@playwright/test').Page) {
@@ -95,7 +100,7 @@ async function simular(page: import('@playwright/test').Page) {
   await page.route('**/partner/riesgo/pre-calificacion**', (r) => r.fulfill({ status: 500, json: {} }));
   await page.route(/\/api\/operaciones\/modelos(\?.*)?$/, (r) => r.fulfill({ json: MODELOS }));
   await page.route(/\/api\/operaciones\/unidades-vehiculares(\?.*)?$/, (r) =>
-    r.fulfill({ json: { contenido: [LIBRE, EN_CAMINO, RESERVADA], total: 3, page: 0, size: 100 } })
+    r.fulfill({ json: { contenido: [LIBRE, EN_CAMINO, RESERVADA, EN_CAJA], total: 4, page: 0, size: 100 } })
   );
 }
 
@@ -181,4 +186,30 @@ test('en celular el selector se usa a 390 px sin desbordar', async ({ page }) =>
   const desborde = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(desborde).toBeLessThanOrEqual(0);
   await modal.screenshot({ path: 'test-results/aliado-selector-celular.png' });
+});
+
+test('una moto en caja se elige con confirmación: todavía no se entrega (auditoría #15)', async ({ page }) => {
+  await simular(page);
+  await iniciarConRol(page, 'VENDEDOR_LIBRE');
+  await page.goto(`/ejecutivo/solicitud/${SOLICITUD_ID}/continuar`);
+  await page.getByRole('button', { name: 'Elegir moto del stock' }).click();
+
+  const modal = page.locator('.mt-modal-panel mt-modal-shell');
+  // La verdad física en la fila, en vez de un «Libre» verde: la moto está en su caja.
+  await expect(modal).toContainText('En preparación (en caja)');
+
+  await modal.getByRole('button', { name: new RegExp(EN_CAJA.vin) }).click();
+  await expect(modal).toContainText('Esta moto todavía no se puede entregar');
+  await expect(modal).toContainText('está en caja');
+  await page.screenshot({ path: 'test-results/aliado-selector-no-entregable.png' });
+
+  // «Elegir otra» vuelve a la lista sin cerrar nada.
+  await page.getByRole('button', { name: 'Elegir otra' }).click();
+  await expect(modal).toContainText('Elegir moto del stock de Motoya');
+
+  // Y con la confirmación la moto se toma igual: la venta se puede hacer (DEC-018).
+  await modal.getByRole('button', { name: new RegExp(EN_CAJA.vin) }).click();
+  await page.getByRole('button', { name: 'Continuar con esta moto' }).click();
+  await expect(modal).toHaveCount(0);
+  await expect(page.getByLabel(/N° de chasis/)).toHaveValue(EN_CAJA.vin);
 });

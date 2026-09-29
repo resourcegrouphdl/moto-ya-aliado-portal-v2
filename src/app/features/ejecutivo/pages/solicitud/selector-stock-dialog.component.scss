@@ -10,6 +10,24 @@
   color: var(--color-text-muted);
 }
 
+/* El paso de confirmación de una moto que todavía no se entrega (#15): el aviso y las dos salidas, en
+   columna en el celular y en fila cuando hay ancho. Los botones con el mínimo táctil de 44 px. */
+.mt-sel__confirmacion {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.mt-sel__confirmacion-acciones {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-2);
+
+  @media (min-width: 480px) {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+}
+
 /* Una moto por fila, como tarjeta tocable: en el celular el modal ocupa todo el ancho y esto se lee
    de un vistazo (VIN, dónde está, en qué estado), sin tabla que se desborde. */
 .mt-sel__lista {
