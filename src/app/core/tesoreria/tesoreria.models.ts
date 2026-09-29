@@ -1,34 +1,7 @@
-// Espeja los DTOs reales de motoya-api (com.motoya.api.tesoreria) — BC-05
-// Pagos a Tienda / BC-06 Comisión a Vendedor, expuestos bajo /partner/tesoreria.
-export type TipoOrdenPago = 'INICIAL' | 'DESEMBOLSO';
-export type EstadoOrdenPago =
-  | 'PENDIENTE'
-  | 'APROBADA_1'
-  | 'APROBADA_2'
-  | 'AUTORIZADA'
-  | 'EN_PROCESAMIENTO'
-  | 'PROCESADA'
-  | 'CONCILIADA'
-  | 'RECHAZADA'
-  | 'ANULADA';
+// Espeja los DTOs reales de motoya-api (com.motoya.api.tesoreria) — BC-06 Comisión a Vendedor y las facturas del
+// legado, expuestos bajo /partner/tesoreria. (Las órdenes de pago del circuito viejo se retiraron con la pieza 5
+// de la fase D, 2026-09-28.)
 export type EstadoComision = 'PENDIENTE' | 'PAGADA';
-
-export interface OrdenPagoResumen {
-  id: string;
-  contratoId: string;
-  numeroContrato: string | null;
-  clienteNombre: string | null;
-  vehiculoDescripcion: string | null;
-  tiendaNombre: string | null;
-  tipo: TipoOrdenPago;
-  monto: number;
-  fechaProgramada: string;
-  estado: EstadoOrdenPago;
-  motivoRechazo: string | null;
-  referenciaConciliacion: string | null;
-  comprobanteUrl: string | null;
-  creadoEn: string;
-}
 
 export interface ComisionResumen {
   id: string;
@@ -46,31 +19,13 @@ export interface ComisionResumen {
   creadoEn: string;
 }
 
-export const TIPO_ORDEN_PAGO_LABEL: Record<TipoOrdenPago, string> = {
-  INICIAL: 'Pago inicial',
-  DESEMBOLSO: 'Desembolso de capital'
-};
-
-export const ESTADO_ORDEN_PAGO_LABEL: Record<EstadoOrdenPago, string> = {
-  PENDIENTE: 'Pendiente de aprobación',
-  APROBADA_1: 'Aprobada (1ra firma)',
-  APROBADA_2: 'Aprobada (2da firma)',
-  AUTORIZADA: 'Autorizada',
-  EN_PROCESAMIENTO: 'En procesamiento',
-  PROCESADA: 'Procesada',
-  CONCILIADA: 'Pagado',
-  RECHAZADA: 'Rechazada',
-  ANULADA: 'Anulada'
-};
-
 export const ESTADO_COMISION_LABEL: Record<EstadoComision, string> = {
   PENDIENTE: 'Pendiente de pago',
   PAGADA: 'Pagada'
 };
 
-// Contratos migrados (motorCalculo=LEGACY_TASA_FIJA_MIGRADO): no tienen
-// OrdenPago en Postgres, su estado se consulta en vivo contra el Firestore
-// del sistema legacy (ver /partner/tesoreria/facturas-legado).
+// Contratos migrados (motorCalculo=LEGACY_TASA_FIJA_MIGRADO): no tienen cronograma del motor nuevo, su estado
+// se consulta en vivo contra el Firestore del sistema legacy (ver /partner/tesoreria/facturas-legado).
 export type EstadoFacturaLegado = 'PAGADA' | 'PENDIENTE' | 'SIN_REGISTRO';
 
 export interface FacturaLegadoResumen {

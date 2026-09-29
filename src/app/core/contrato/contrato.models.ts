@@ -41,7 +41,11 @@ export interface DocumentoContrato {
   id: string;
   contratoId: string;
   tipoDocumento: TipoDocumentoContrato;
-  url: string;
+  /**
+   * El Documento de Document Management (DEC-057): la URL de lectura se pide al abrirlo (`urlLectura`) porque
+   * el enlace vence. `null` en un documento anterior a la fecha de corte (2026-09-28).
+   */
+  documentoId: string | null;
   monto: number | null;
   estado: EstadoDocumento;
   subidoPor: string;
@@ -91,14 +95,8 @@ export interface CronogramaVersion {
   cuotas: CuotaAmortizacion[];
 }
 
-export interface SolicitudSubidaDocumento {
-  uploadUrl: string;
-  publicUrl: string;
-  /** URI gs://bucket/ruta cruda — la pide el OCR de factura (extraerFactura), no sirve para descargar. */
-  gcsPath: string;
-  headerRequeridoNombre: string;
-  headerRequeridoValor: string;
-}
+// La solicitud de subida firmada de contrato se retiró (fase D, 2026-09-28): todo el expediente entra por
+// Document Management — ver core/documentos/documentos-api.service.ts.
 
 /** Resultado best-effort del OCR de una factura de vehículo — ver DocumentAiFacturaVehiculoClient (backend). */
 export interface DatosFacturaVehiculoExtraidos {
@@ -109,6 +107,15 @@ export interface DatosFacturaVehiculoExtraidos {
   numeroMotor: string | null;
   numeroChasis: string | null;
   monto: number | null;
+  /** Fase D (2026-09-28): lo que el documento dice de sí mismo. La factura la emite la tienda **al cliente**. */
+  tipoComprobante: string | null;
+  rucEmisor: string | null;
+  razonSocialEmisor: string | null;
+  serie: string | null;
+  numero: string | null;
+  fechaEmision: string | null;
+  baseImponible: number | null;
+  igv: number | null;
   posibleProblemaCalidad: boolean;
   detalleProblemaCalidad: string | null;
 }

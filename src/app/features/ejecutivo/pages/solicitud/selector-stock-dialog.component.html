@@ -1,0 +1,70 @@
+<mt-modal-shell title="Elegir moto del stock de Motoya" (closeRequested)="close()">
+  @if (confirmando(); as pendiente) {
+    <!-- La moto elegida todavía no se puede entregar (auditoría 2026-09-28, #15): la venta se puede hacer, pero
+         el vendedor tiene que saberlo antes de prometerle una fecha al cliente. -->
+    <div class="mt-sel__confirmacion" data-paso="confirmacion">
+      <mt-alert variant="warning" title="Esta moto todavía no se puede entregar">
+        La {{ pendiente.vin }} está {{ situacionDe(pendiente) }}. La venta se puede hacer igual —queda reservada
+        para esta solicitud— y se va a poder entregar cuando termine el armado y el control de calidad.
+      </mt-alert>
+      <div class="mt-sel__confirmacion-acciones">
+        <mt-button variant="ghost" (click)="cancelarLaConfirmacion()">Elegir otra</mt-button>
+        <mt-button variant="primary" (click)="confirmarLaNoEntregable()">Continuar con esta moto</mt-button>
+      </div>
+    </div>
+  } @else {
+  <p class="mt-sel__intro">
+    Se puede elegir una moto <strong>libre</strong> o una <strong>en camino</strong> (ya está facturada
+    al importador y llega igual: queda reservada para esta solicitud y su ventana de 48 h arranca
+    cuando llega al local). Las <strong>reservadas</strong> se ven con su vencimiento, pero no se
+    pueden tomar.
+  </p>
+
+  <mt-select
+    label="Modelo"
+    [options]="modeloOptions()"
+    [ngModel]="modeloId()"
+    (ngModelChange)="cambiarModelo($event)"
+  />
+
+  @if (aviso()) {
+    <mt-alert variant="warning">{{ aviso() }}</mt-alert>
+  }
+
+  @if (error()) {
+    <mt-alert variant="error">
+      {{ error() }}
+      <mt-button variant="secondary" size="sm" (click)="cargarStock()">Reintentar</mt-button>
+    </mt-alert>
+  } @else if (cargando()) {
+    <p class="mt-sel__estado">Buscando motos…</p>
+  } @else if (unidades().length === 0) {
+    <mt-empty-state
+      icon="two_wheeler"
+      title="No hay motos de este modelo"
+      description="Probá con otro modelo del catálogo."
+    />
+  } @else {
+    <ul class="mt-sel__lista">
+      @for (u of unidades(); track u.id) {
+        <li>
+          <button
+            type="button"
+            class="mt-sel__fila"
+            [class.mt-sel__fila--reservada]="!esElegible(u)"
+            (click)="elegir(u)"
+          >
+            <span class="mt-sel__vin">{{ u.vin }}</span>
+            <span class="mt-sel__meta">Año {{ u.anioModelo ?? '—' }} · {{ localDe(u) }}</span>
+            <mt-badge [variant]="estadoBadge(u)">{{ estadoDeStock(u) }}</mt-badge>
+          </button>
+        </li>
+      }
+    </ul>
+  }
+  }
+
+  <div modal-footer>
+    <mt-button variant="secondary" (click)="close()">Cancelar</mt-button>
+  </div>
+</mt-modal-shell>

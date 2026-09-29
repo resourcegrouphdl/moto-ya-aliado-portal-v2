@@ -175,6 +175,59 @@
   }
 }
 
+// ---------------------------------------------------------------------------
+// Catálogo interno (venta propia / vendedor libre — DEC-060) dentro del paso "La moto"
+// ---------------------------------------------------------------------------
+.catalogo-interno {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.catalogo-interno__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.catalogo-interno__hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* Un fallo del catálogo se ve distinto de «no hay motos» (auditoría 2026-09-26): tinta de peligro
+   sobre el token de estado, no el gris de un texto informativo. */
+.catalogo-interno__hint--error {
+  color: var(--st-danger-ink);
+}
+
+.catalogo-interno__seleccion {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--st-ready-ink);
+
+  strong {
+    font-family: var(--font-mono);
+  }
+}
+
+/* El modelo de la moto elegida: contexto para el vendedor, no un dato que tenga que copiar. */
+.catalogo-interno__modelo {
+  color: var(--color-text-muted);
+}
+
 .span-4 {
   grid-column: span 4;
 }

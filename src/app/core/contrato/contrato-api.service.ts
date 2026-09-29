@@ -1,4 +1,4 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -6,8 +6,7 @@ import {
   ContratoResumen,
   CronogramaVersion,
   DatosFacturaVehiculoExtraidos,
-  DocumentoContrato,
-  SolicitudSubidaDocumento
+  DocumentoContrato
 } from './contrato.models';
 
 /**
@@ -37,32 +36,12 @@ export class ContratoApiService {
     return this.http.get<CronogramaVersion>(`${this.base}/${id}/cronograma`);
   }
 
-  solicitarSubida(contratoId: string, nombreArchivo: string, contentType: string): Observable<SolicitudSubidaDocumento> {
-    return this.http.post<SolicitudSubidaDocumento>(`${this.base}/${contratoId}/documentos/solicitar-subida`, {
-      nombreArchivo,
-      contentType
-    });
-  }
-
-  /**
-   * PUT directo a Google Cloud Storage con la signed URL — el binario nunca
-   * pasa por motoya-api. No usa {@link base}: es otro host por completo, y
-   * el interceptor de auth (que solo adjunta el Bearer token a requests que
-   * empiezan con environment.gatewayBaseUrl) correctamente lo ignora.
-   */
-  subirArchivo(solicitud: SolicitudSubidaDocumento, archivo: File): Observable<unknown> {
-    const headers = new HttpHeaders({
-      [solicitud.headerRequeridoNombre]: solicitud.headerRequeridoValor,
-      'Content-Type': archivo.type
-    });
-    return this.http.put(solicitud.uploadUrl, archivo, { headers });
-  }
-
   registrarDocumento(
     contratoId: string,
     datos: {
       tipoDocumento: string;
-      url: string;
+      /** El Documento de Document Management (DEC-057) — el único camino: todo el expediente entra por ahí. */
+      documentoId: string;
       monto: number | null;
       numeroChasis?: string | null;
       color?: string | null;
@@ -75,10 +54,25 @@ export class ContratoApiService {
     return this.http.post<DocumentoContrato>(`${this.base}/${contratoId}/documentos`, datos);
   }
 
-  /** OCR best-effort de una factura ya subida a GCS — mismo criterio que el flujo de identidad (documento-identidad-upload). */
-  extraerFactura(contratoId: string, gcsPath: string, contentType: string): Observable<DatosFacturaVehiculoExtraidos> {
+  /**
+   * Las correcciones sobre el prellenado del OCR — **el aprendizaje del lector** (fase D): el backend
+   * compara contra lo que se había leído y aprende la etiqueta de esa tienda donde haya diferencia.
+   * Best-effort: si falla, el documento ya quedó registrado igual.
+   */
+  corregirFactura(contratoId: string, documentoId: string, campos: Record<string, string>): Observable<{ reglasAprendidas: number }> {
+    return this.http.post<{ reglasAprendidas: number }>(
+      `${this.base}/${contratoId}/documentos/${documentoId}/correcciones`,
+      { campos }
+    );
+  }
+
+  /**
+   * OCR best-effort de la factura ya registrada en **Document Management** (fase D): motoya-api la lee de
+   * DM y le manda el archivo en línea a Document AI — mismo criterio que el flujo de identidad.
+   */
+  extraerFactura(contratoId: string, documentoId: string, contentType: string): Observable<DatosFacturaVehiculoExtraidos> {
     return this.http.post<DatosFacturaVehiculoExtraidos>(`${this.base}/${contratoId}/documentos/extraer-factura`, {
-      gcsPath,
+      documentoId,
       contentType
     });
   }

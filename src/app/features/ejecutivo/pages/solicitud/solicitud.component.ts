@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -23,6 +23,14 @@ import { UbigeoSelectorComponent } from '../../../../shared/ui/ubigeo-selector/u
 import { VerificacionEmailComponent } from '../../../../shared/ui/verificacion-email/verificacion-email.component';
 import { ModalService } from '../../../../shared/ui/modal/modal.service';
 import { PreCalificacionAlertDialogComponent } from '../../../../shared/ui/modal/pre-calificacion-alert-dialog.component';
+import { AuthService } from '../../../../core/auth/auth.service';
+import { InventarioApiService } from '../../../../core/inventario/inventario-api.service';
+import { ModeloCatalogo } from '../../../../core/inventario/inventario.models';
+import {
+  SeleccionStockDialogData,
+  SeleccionStockResult,
+  SelectorStockDialogComponent
+} from './selector-stock-dialog.component';
 import { UBICACION_VACIA, UbicacionSeleccionada, ubicacionRequerida } from '../../../../core/ubigeo/ubigeo.models';
 import { OriginacionApiService } from '../../../../core/originacion/originacion-api.service';
 import { PreCalificacionApiService } from '../../../../core/riesgo/precalificacion-api.service';
@@ -220,6 +228,8 @@ export class SolicitudComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly preCalificacionApi = inject(PreCalificacionApiService);
   private readonly modalService = inject(ModalService);
+  private readonly authService = inject(AuthService);
+  private readonly inventarioApi = inject(InventarioApiService);
 
   protected readonly pasos = PASOS;
   protected readonly tiposDocumento = TIPOS_DOCUMENTO;
@@ -403,6 +413,82 @@ export class SolicitudComponent {
     incluyeSoat: [false, Validators.required]
   });
 
+  /**
+   * Venta interna (red-comercial-y-rentabilidad.md §10.1, DEC-060): solo el vendedor libre trabaja
+   * con el stock/catálogo de Motoya — un ejecutivo de tienda aliada trae su propio stock y no ve
+   * esto (DEC-049/DEC-060). Elegir una unidad precompleta el formulario de arriba (marca, modelo,
+   * año, VIN) y **al guardar el vehículo esa unidad queda reservada 48 h** (DEC-061): los campos
+   * siguen editables a propósito — cambiar el VIN libera la reserva anterior y toma la nueva. Si la
+   * reserva no se puede aplicar, queda la incidencia y el vendedor la ve en la solicitud (DEC-073).
+   */
+  protected readonly esVentaInterna = computed(() => this.authService.rol() === 'VENDEDOR_LIBRE');
+  protected readonly modelosCatalogo = signal<ModeloCatalogo[]>([]);
+  protected readonly modeloCatalogoId = signal<string | null>(null);
+  protected readonly vinElegidoDelCatalogo = signal<string | null>(null);
+  /** El modelo de la moto elegida, para el resumen de la selección. */
+  protected readonly modeloElegido = computed(() => {
+    const elegido = this.modeloCatalogoId();
+    return elegido ? (this.modelosCatalogo().find((m) => m.id === elegido) ?? null) : null;
+  });
+  /** `esVentaInterna()` depende de un claim de Firebase que resuelve async — un `if` en el
+   * constructor podría leerlo antes de que exista. El `effect()` de abajo reintenta solo hasta
+   * que se resuelva a `true` una vez (este flag evita pedir el catálogo dos veces). */
+  private catalogoInternoPedido = false;
+
+  /** Un fallo del catálogo no puede verse igual que «no hay motos» (auditoría 2026-09-26): el
+   * vendedor libre concluiría que la función no existe, teclearía la moto a mano y se perdería la
+   * reserva sin que nadie se entere. */
+  protected readonly errorCatalogoModelos = signal(false);
+
+  protected cargarCatalogoInterno(): void {
+    this.catalogoInternoPedido = true;
+    this.errorCatalogoModelos.set(false);
+    this.inventarioApi.listarModelos().subscribe({
+      next: (modelos) => this.modelosCatalogo.set(modelos.filter((m) => m.activo)),
+      error: () => {
+        this.modelosCatalogo.set([]);
+        this.errorCatalogoModelos.set(true);
+      }
+    });
+  }
+
+  /**
+   * DEC-075: la elección de la moto pasa por el selector de stock — todas las unidades del modelo con
+   * su estado real (libre / en camino / reservada con su vencimiento). Antes eran chips de solo las
+   * `DISPONIBLE`: una moto reservada simplemente no aparecía y no había forma de saber si la moto
+   * estaba en el salón o todavía venía del importador.
+   */
+  protected abrirSelectorStock(): void {
+    this.modalService
+      .open<SelectorStockDialogComponent, SeleccionStockResult | null, SeleccionStockDialogData>(
+        SelectorStockDialogComponent,
+        { data: { modeloId: this.modeloCatalogoId() } }
+      )
+      .closed.subscribe((resultado) => {
+        if (resultado) {
+          this.aplicarSeleccionDeStock(resultado);
+        }
+      });
+  }
+
+  /** La moto elegida precompleta el formulario; los campos siguen editables, pero la reserva (al
+   * guardar, DEC-061) es de ESTE VIN. */
+  private aplicarSeleccionDeStock({ unidad, modelo }: SeleccionStockResult): void {
+    this.modeloCatalogoId.set(modelo.id);
+    this.vinElegidoDelCatalogo.set(unidad.vin);
+    this.formVehiculo.patchValue({
+      marca: modelo.marca,
+      modelo: modelo.modelo,
+      anio: unidad.anioModelo ?? this.formVehiculo.controls.anio.value,
+      numeroChasis: unidad.vin
+    });
+  }
+
+  protected quitarSeleccionCatalogo(): void {
+    this.vinElegidoDelCatalogo.set(null);
+    this.modeloCatalogoId.set(null);
+  }
+
   protected readonly formReferencia = this.fb.nonNullable.group({
     nombres: ['', Validators.required],
     apellidos: ['', Validators.required],
@@ -417,6 +503,12 @@ export class SolicitudComponent {
   constructor() {
     this.configurarDocumentoTitular();
     this.configurarDocumentoAvalista();
+
+    effect(() => {
+      if (this.esVentaInterna() && !this.catalogoInternoPedido) {
+        this.cargarCatalogoInterno();
+      }
+    });
 
     const idExistente = this.route.snapshot.paramMap.get('id');
     if (idExistente) {
