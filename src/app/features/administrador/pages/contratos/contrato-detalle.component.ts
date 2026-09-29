@@ -4,14 +4,16 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ContratoApiService } from '../../../../core/contrato/contrato-api.service';
+import { DocumentosApiService, TipoDocumentoDm } from '../../../../core/documentos/documentos-api.service';
+import { Observable } from 'rxjs';
 import {
   ContratoResumen,
   CronogramaVersion,
+  DatosFacturaVehiculoExtraidos,
   DocumentoContrato,
   ESTADO_DOCUMENTO_LABEL,
   ESTADO_FORMALIZACION_LABEL,
   EstadoFormalizacion,
-  SolicitudSubidaDocumento,
   TIPO_DOCUMENTO_LABEL,
   TipoDocumentoContrato
 } from '../../../../core/contrato/contrato.models';
@@ -51,6 +53,25 @@ const PASOS_FORMALIZACION: { estado: EstadoFormalizacion; label: string; icon: s
   { estado: 'FIRMADO', label: 'Firmado', icon: 'task_alt' }
 ];
 
+/**
+ * Los tipos del expediente que ya viven en **Document Management** (fase D, 2026-09-28): la factura que
+ * la tienda emite al cliente y el voucher de su pago de la inicial. Los demás tipos siguen por GCS.
+ */
+/**
+ * Todo el expediente del contrato entra por **Document Management** (DEC-057; fecha de corte 2026-09-28):
+ * con los tres tipos nuevos del catálogo de DM (evidencia de firma, placa y acta de entrega) el mapeo es
+ * total, así que la tienda ya no sube ningún documento por el camino viejo de GCS.
+ */
+const TIPO_DM: Record<TipoDocumentoContrato, TipoDocumentoDm> = {
+  BOUCHER: 'VOUCHER',
+  FACTURA: 'FACTURA',
+  EVIDENCIA_FIRMA: 'EVIDENCIA_FIRMA',
+  TIVE: 'TIVE',
+  SOAT: 'SOAT',
+  PLACA: 'PLACA',
+  ACTA_ENTREGA: 'ACTA_ENTREGA'
+};
+
 const TIPO_DOCUMENTO_OPTIONS: SelectOption<TipoDocumentoContrato>[] = [
   { label: 'Factura de la moto', value: 'FACTURA' },
   { label: 'Boucher de pago inicial', value: 'BOUCHER' },
@@ -89,6 +110,7 @@ export class ContratoDetalleComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(ContratoApiService);
+  private readonly documentosApi = inject(DocumentosApiService);
   private readonly fb = inject(FormBuilder);
 
   private readonly contratoId = this.route.snapshot.paramMap.get('id')!;
@@ -104,6 +126,8 @@ export class ContratoDetalleComponent {
   protected readonly documentos = signal<DocumentoContrato[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
+  /** Un aviso de que algo salió bien y no se ve en la lista (hoy: que el lector aprendió, fase D). */
+  protected readonly exito = signal<string | null>(null);
   protected readonly subiendo = signal(false);
   protected readonly archivoSeleccionado = signal<File | null>(null);
   protected readonly cronograma = signal<CronogramaVersion | null>(null);
@@ -128,7 +152,9 @@ export class ContratoDetalleComponent {
    * mt-documento-identidad-upload. `facturaSubida` guarda el resultado de esa
    * subida (con el `gcsPath`/`publicUrl`) para el registro final.
    */
-  protected readonly facturaSubida = signal<SolicitudSubidaDocumento | null>(null);
+  protected readonly facturaSubida = signal<{ documentoId: string } | null>(null);
+  /** Lo que el lector sacó de la factura (fase D): alimenta el resumen fiscal y el aprendizaje. */
+  protected readonly lecturaFactura = signal<DatosFacturaVehiculoExtraidos | null>(null);
   protected readonly extrayendoFactura = signal(false);
   protected readonly avisoCalidadFactura = signal<string | null>(null);
 
@@ -221,53 +247,66 @@ export class ContratoDetalleComponent {
     this.archivoSeleccionado.set(archivo);
   }
 
-  /** Sube la factura a GCS y pide OCR best-effort (Document AI) — nunca bloquea si falla, solo avisa. */
+  /**
+   * El archivo pasa por Document Management (DEC-057) y el expediente guarda el **id** del Documento.
+   * El dueño es el contrato: el cliente no siempre tiene persona registrada y el expediente es lo que
+   * agrupa estos documentos.
+   */
+  private subirADocumentManagement(tipo: TipoDocumentoDm, archivo: File): Observable<{ documentoId: string }> {
+    return this.documentosApi.subir({
+      tipo,
+      archivo,
+      propietarioId: this.contratoId,
+      entidadRelacionadaTipo: 'CONTRATO',
+      entidadRelacionadaId: this.contratoId
+    });
+  }
+
+  /**
+   * Sube la factura a **Document Management** (DEC-057) y pide OCR best-effort (Document AI) — nunca
+   * bloquea si falla, solo avisa. La factura la emite la tienda **al cliente**: es su documento y el
+   * expediente de la moto, no una cuenta por pagar de Motoya.
+   */
   private procesarFactura(archivo: File): void {
     this.subiendo.set(true);
     this.error.set(null);
     this.facturaSubida.set(null);
+    this.lecturaFactura.set(null);
     this.avisoCalidadFactura.set(null);
 
-    this.api.solicitarSubida(this.contratoId, archivo.name, archivo.type).subscribe({
-      next: (solicitud) => {
-        this.api.subirArchivo(solicitud, archivo).subscribe({
-          next: () => {
-            this.subiendo.set(false);
-            this.facturaSubida.set(solicitud);
-            this.extrayendoFactura.set(true);
-            this.api.extraerFactura(this.contratoId, solicitud.gcsPath, archivo.type).subscribe({
-              next: (datos) => {
-                this.extrayendoFactura.set(false);
-                this.form.patchValue({
-                  marca: datos.marca ?? this.form.controls.marca.value,
-                  modelo: datos.modelo ?? this.form.controls.modelo.value,
-                  anio: datos.anio ?? this.form.controls.anio.value,
-                  color: datos.color ?? this.form.controls.color.value,
-                  numeroMotor: datos.numeroMotor ?? this.form.controls.numeroMotor.value,
-                  numeroChasis: datos.numeroChasis ?? this.form.controls.numeroChasis.value,
-                  monto: datos.monto ?? this.form.controls.monto.value
-                });
-                if (datos.posibleProblemaCalidad) {
-                  this.avisoCalidadFactura.set(
-                    datos.detalleProblemaCalidad ?? 'No se pudo leer la factura automáticamente — revisa los datos.'
-                  );
-                }
-              },
-              error: () => {
-                this.extrayendoFactura.set(false);
-                this.avisoCalidadFactura.set('No se pudo leer la factura automáticamente. Completa los datos manualmente.');
-              }
+    this.subirADocumentManagement('FACTURA', archivo).subscribe({
+      next: ({ documentoId }) => {
+        this.subiendo.set(false);
+        this.facturaSubida.set({ documentoId });
+        this.extrayendoFactura.set(true);
+        this.api.extraerFactura(this.contratoId, documentoId, archivo.type).subscribe({
+          next: (datos) => {
+            this.extrayendoFactura.set(false);
+            this.lecturaFactura.set(datos);
+            this.form.patchValue({
+              marca: datos.marca ?? this.form.controls.marca.value,
+              modelo: datos.modelo ?? this.form.controls.modelo.value,
+              anio: datos.anio ?? this.form.controls.anio.value,
+              color: datos.color ?? this.form.controls.color.value,
+              numeroMotor: datos.numeroMotor ?? this.form.controls.numeroMotor.value,
+              numeroChasis: datos.numeroChasis ?? this.form.controls.numeroChasis.value,
+              monto: datos.monto ?? this.form.controls.monto.value
             });
+            if (datos.posibleProblemaCalidad) {
+              this.avisoCalidadFactura.set(
+                datos.detalleProblemaCalidad ?? 'No se pudo leer la factura automáticamente — revisa los datos.'
+              );
+            }
           },
           error: () => {
-            this.subiendo.set(false);
-            this.error.set('No se pudo subir la factura.');
+            this.extrayendoFactura.set(false);
+            this.avisoCalidadFactura.set('No se pudo leer la factura automáticamente. Completa los datos manualmente.');
           }
         });
       },
       error: () => {
         this.subiendo.set(false);
-        this.error.set('No se pudo iniciar la subida.');
+        this.error.set('No se pudo subir la factura.');
       }
     });
   }
@@ -286,7 +325,7 @@ export class ContratoDetalleComponent {
         this.error.set('Completa marca, modelo, año, color, n° de motor y n° de chasis antes de registrar la factura.');
         return;
       }
-      this.registrar({ tipoDocumento, url: solicitud.publicUrl, monto, numeroChasis, color, marca, modelo, anio, numeroMotor });
+      this.registrar({ tipoDocumento, documentoId: solicitud.documentoId, monto, numeroChasis, color, marca, modelo, anio, numeroMotor });
       return;
     }
 
@@ -295,26 +334,84 @@ export class ContratoDetalleComponent {
 
     this.subiendo.set(true);
     this.error.set(null);
-    this.api.solicitarSubida(this.contratoId, archivo.name, archivo.type).subscribe({
-      next: (solicitud) => {
-        this.api.subirArchivo(solicitud, archivo).subscribe({
-          next: () => this.registrar({ tipoDocumento, url: solicitud.publicUrl, monto }),
-          error: () => {
-            this.subiendo.set(false);
-            this.error.set('No se pudo subir el archivo.');
-          }
-        });
-      },
+
+    // Todo el expediente entra por Document Management: se sube el archivo y se registra el Documento con su
+    // id — el contrato ya no guarda una URL de GCS (fecha de corte, 2026-09-28).
+    this.subirADocumentManagement(TIPO_DM[tipoDocumento], archivo).subscribe({
+      next: ({ documentoId }) => this.registrar({ tipoDocumento, documentoId, monto }),
       error: () => {
         this.subiendo.set(false);
-        this.error.set('No se pudo iniciar la subida.');
+        this.error.set('No se pudo subir el archivo.');
+      }
+    });
+  }
+
+  /**
+   * «Ver archivo» — la URL de lectura se pide a Document Management **al momento** (vence): el contrato guarda
+   * el id del Documento, no un enlace. Un documento anterior a la fecha de corte no tiene Documento de DM.
+   */
+  verArchivo(doc: DocumentoContrato): void {
+    if (!doc.documentoId) {
+      this.error.set('Este documento es anterior a Document Management: su enlace ya no está disponible.');
+      return;
+    }
+    this.documentosApi.urlLectura(doc.documentoId).subscribe({
+      next: ({ url }) => window.open(url, '_blank', 'noopener'),
+      error: () => this.error.set('No se pudo abrir el archivo.')
+    });
+  }
+
+  /**
+   * El aprendizaje del lector (fase D): lo que la tienda dejó en el formulario es la verdad. Se manda
+   * tal cual y el backend aprende solo donde difiere de lo que el OCR había sacado. Best-effort: si
+   * falla, el documento ya está registrado y lo único que se pierde es que el lector mejore con esta
+   * factura.
+   */
+  private aprenderDeLaCorreccion(datos: {
+    documentoId?: string;
+    monto: number | null;
+    numeroChasis?: string | null;
+    color?: string | null;
+    marca?: string | null;
+    modelo?: string | null;
+    anio?: number | null;
+    numeroMotor?: string | null;
+  }): void {
+    if (!datos.documentoId) {
+      return;
+    }
+    const campos: Record<string, string> = {};
+    const poner = (campo: string, valor: unknown) => {
+      if (valor !== null && valor !== undefined && valor !== '') {
+        campos[campo] = String(valor);
+      }
+    };
+    poner('MARCA', datos.marca);
+    poner('MODELO', datos.modelo);
+    poner('ANIO', datos.anio);
+    poner('COLOR', datos.color);
+    poner('NUMERO_MOTOR', datos.numeroMotor);
+    poner('NUMERO_CHASIS', datos.numeroChasis);
+    poner('MONTO', datos.monto);
+    if (Object.keys(campos).length === 0) {
+      return;
+    }
+    this.api.corregirFactura(this.contratoId, datos.documentoId, campos).subscribe({
+      next: ({ reglasAprendidas }) => {
+        if (reglasAprendidas > 0) {
+          this.exito.set(`El lector aprendió ${reglasAprendidas} regla(s) de las facturas de esta tienda.`);
+        }
+      },
+      error: () => {
+        // Best-effort: el documento quedó registrado; el aprendizaje se reintenta con la próxima factura.
       }
     });
   }
 
   private registrar(datos: {
     tipoDocumento: TipoDocumentoContrato;
-    url: string;
+    /** El Documento de Document Management (DEC-057) — el único camino: todo el expediente entra por ahí. */
+    documentoId: string;
     monto: number | null;
     numeroChasis?: string | null;
     color?: string | null;
@@ -330,7 +427,9 @@ export class ContratoDetalleComponent {
         this.subiendo.set(false);
         this.archivoSeleccionado.set(null);
         this.facturaSubida.set(null);
+        this.lecturaFactura.set(null);
         this.avisoCalidadFactura.set(null);
+        this.aprenderDeLaCorreccion(datos);
         this.form.reset({
           tipoDocumento: 'BOUCHER', monto: null, numeroChasis: '', color: '', marca: '', modelo: '', anio: null, numeroMotor: ''
         });

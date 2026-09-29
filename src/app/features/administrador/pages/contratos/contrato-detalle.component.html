@@ -140,7 +140,7 @@
                 @if (doc.monto) {
                   <span>S/ {{ doc.monto | number: '1.2-2' }}</span>
                 }
-                <a [href]="doc.url" target="_blank" rel="noopener">Ver archivo</a>
+                <button type="button" class="documentos-list__ver" (click)="verArchivo(doc)">Ver archivo</button>
               </div>
               @if (doc.tipoDocumento === 'FACTURA' && doc.numeroChasis) {
                 <p class="documentos-list__notas">
@@ -179,6 +179,19 @@
             }
             @if (avisoCalidadFactura()) {
               <mt-alert variant="warning">{{ avisoCalidadFactura() }}</mt-alert>
+            }
+            @if (exito()) {
+              <mt-alert variant="info">{{ exito() }}</mt-alert>
+            }
+            @if (lecturaFactura(); as factura) {
+              <p class="text-muted">
+                Según la factura:@if (factura.tipoComprobante) { {{ factura.tipoComprobante }} }
+                @if (factura.serie) { {{ factura.serie }}-{{ factura.numero }} }
+                @if (factura.rucEmisor) { · RUC {{ factura.rucEmisor }} }
+                @if (factura.fechaEmision) { · emitida el {{ factura.fechaEmision }} }
+                @if (factura.baseImponible !== null) { · base S/ {{ factura.baseImponible | number: '1.2-2' }} }
+                @if (factura.igv !== null) { · IGV S/ {{ factura.igv | number: '1.2-2' }} }
+              </p>
             }
             <mt-input label="Marca" formControlName="marca" />
             <mt-input label="Modelo" formControlName="modelo" />
