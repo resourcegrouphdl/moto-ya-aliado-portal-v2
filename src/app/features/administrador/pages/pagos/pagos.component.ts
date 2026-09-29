@@ -2,31 +2,14 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { TesoreriaApiService } from '../../../../core/tesoreria/tesoreria-api.service';
 import {
   ESTADO_FACTURA_LEGADO_LABEL,
-  ESTADO_ORDEN_PAGO_LABEL,
   EstadoFacturaLegado,
-  EstadoOrdenPago,
-  FacturaLegadoResumen,
-  OrdenPagoResumen,
-  TIPO_ORDEN_PAGO_LABEL
+  FacturaLegadoResumen
 } from '../../../../core/tesoreria/tesoreria.models';
 import { MtDatePipe } from '../../../../shared/pipes/mt-date.pipe';
 import { AlertComponent } from '../../../../shared/ui/alert/alert.component';
 import { BadgeComponent, BadgeVariant } from '../../../../shared/ui/badge/badge.component';
 import { CardComponent } from '../../../../shared/ui/card/card.component';
-import { EmptyStateComponent } from '../../../../shared/ui/empty-state/empty-state.component';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header.component';
-
-const ESTADO_VARIANT: Record<EstadoOrdenPago, BadgeVariant> = {
-  PENDIENTE: 'neutral',
-  APROBADA_1: 'warning',
-  APROBADA_2: 'warning',
-  AUTORIZADA: 'warning',
-  EN_PROCESAMIENTO: 'warning',
-  PROCESADA: 'warning',
-  CONCILIADA: 'success',
-  RECHAZADA: 'error',
-  ANULADA: 'error'
-};
 
 const ESTADO_FACTURA_LEGADO_VARIANT: Record<EstadoFacturaLegado, BadgeVariant> = {
   PAGADA: 'success',
@@ -35,14 +18,18 @@ const ESTADO_FACTURA_LEGADO_VARIANT: Record<EstadoFacturaLegado, BadgeVariant> =
 };
 
 /**
- * Pagos que Motoya le debe a la tienda por cada contrato TIENDA_ALIADA
- * (BC-05 Tesorería): pass-through de la cuota inicial + desembolso del
- * capital financiado. Solo lectura — aprobar/conciliar es backoffice de
- * Finanzas (admin-v2), no una acción de la tienda.
+ * Los **contratos anteriores** de la tienda y cómo van sus pagos (los migrados del sistema legacy, que no tienen
+ * cronograma del motor nuevo).
+ *
+ * <p>Acá se veían además las órdenes de pago del circuito viejo —el <i>pass-through</i> de la cuota inicial y el
+ * «desembolso» del capital—, que se retiraron con la pieza 5 de la fase D (2026-09-28): la inicial la cobra la
+ * tienda directo al cliente y el saldo es una **obligación** de Contabilidad, que hoy no tiene pantalla de la
+ * tienda (vive en el calendario de pagos de Finanzas). Cuando la tienda tenga que verla, esa pantalla se
+ * construye contra la obligación, no contra estas órdenes.
  */
 @Component({
   standalone: true,
-  imports: [PageHeaderComponent, EmptyStateComponent, AlertComponent, CardComponent, BadgeComponent, MtDatePipe],
+  imports: [PageHeaderComponent, AlertComponent, CardComponent, BadgeComponent, MtDatePipe],
   templateUrl: './pagos.component.html',
   styleUrl: './pagos.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -50,43 +37,19 @@ const ESTADO_FACTURA_LEGADO_VARIANT: Record<EstadoFacturaLegado, BadgeVariant> =
 export class PagosComponent {
   private readonly api = inject(TesoreriaApiService);
 
-  protected readonly ordenes = signal<OrdenPagoResumen[]>([]);
-  protected readonly loading = signal(true);
-  protected readonly error = signal<string | null>(null);
-
   protected readonly facturasLegado = signal<FacturaLegadoResumen[]>([]);
   protected readonly loadingLegado = signal(true);
   protected readonly errorLegado = signal<string | null>(null);
-
-  protected readonly tipoLabel = TIPO_ORDEN_PAGO_LABEL;
-  protected readonly estadoLabel = ESTADO_ORDEN_PAGO_LABEL;
-  protected readonly estadoVariant = ESTADO_VARIANT;
 
   protected readonly estadoLegadoLabel = ESTADO_FACTURA_LEGADO_LABEL;
   protected readonly estadoLegadoVariant = ESTADO_FACTURA_LEGADO_VARIANT;
 
   constructor() {
-    this.cargar();
     this.cargarLegado();
   }
 
-  private cargar(): void {
-    this.loading.set(true);
-    this.error.set(null);
-    this.api.ordenesDeMiTienda().subscribe({
-      next: (ordenes) => {
-        this.ordenes.set(ordenes);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.loading.set(false);
-        this.error.set('No se pudo cargar los pagos de la tienda.');
-      }
-    });
-  }
-
-  // Contratos migrados del sistema legacy (motorCalculo=LEGACY_TASA_FIJA_MIGRADO):
-  // no generan OrdenPago, se consultan aparte y en vivo contra Firestore.
+  // Contratos migrados del sistema legacy (motorCalculo=LEGACY_TASA_FIJA_MIGRADO): se consultan aparte y en vivo
+  // contra Firestore.
   private cargarLegado(): void {
     this.loadingLegado.set(true);
     this.errorLegado.set(null);
