@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { SolicitudDocumentosService } from '../../../../core/documentos/solicitud-documentos.service';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { catchError, of, switchMap, throwError } from 'rxjs';
 
@@ -96,6 +97,7 @@ const RELACIONES: SelectOption<string>[] = [
 export class SolicitudDetailComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(OriginacionApiService);
+  private readonly documentosSolicitud = inject(SolicitudDocumentosService);
   private readonly fb = inject(FormBuilder);
   private readonly authService = inject(AuthService);
 
@@ -241,23 +243,28 @@ export class SolicitudDetailComponent {
     input.value = '';
     if (!archivo) return;
 
+    // El dueño del documento nuevo es la misma persona del documento que reemplaza: el titular o el aval de esta solicitud.
+    const exp = this.expediente();
+    const propietarioId = documento.rol === 'TITULAR' ? exp?.titular.id : exp?.avalista?.id;
+    if (!propietarioId) return;
+
     this.reemplazandoDocumentoId.set(documento.id);
-    this.api.solicitarSubidaDocumento(this.solicitudId, archivo.name, archivo.type).subscribe({
-      next: (solicitudSubida) => {
-        this.api.subirArchivoDocumento(solicitudSubida, archivo).subscribe({
-          next: () => {
-            this.api.reemplazarDocumento(this.solicitudId, documento.id, solicitudSubida.publicUrl).subscribe({
-              next: (actualizado) => {
-                this.documentos.update((lista) => lista.map((d) => (d.id === actualizado.id ? actualizado : d)));
-                this.reemplazandoDocumentoId.set(null);
-              },
-              error: () => this.reemplazandoDocumentoId.set(null)
-            });
-          },
-          error: () => this.reemplazandoDocumentoId.set(null)
-        });
+    this.documentosSolicitud.subirYReemplazar(this.solicitudId, propietarioId, documento, archivo, this.labelDocumento(documento.rol, documento.tipo)).subscribe({
+      next: (actualizado) => {
+        this.documentos.update((lista) => lista.map((d) => (d.id === actualizado.id ? actualizado : d)));
+        this.reemplazandoDocumentoId.set(null);
       },
       error: () => this.reemplazandoDocumentoId.set(null)
+    });
+  }
+
+  /** «Ver»: la URL de lectura de Document Management se pide al abrirlo (vence); un documento anterior abre su enlace de siempre. */
+  protected verDocumento(documento: DocumentoSolicitudResponse): void {
+    this.documentosSolicitud.urlDe(documento).subscribe({
+      next: (url) => {
+        if (url) window.open(url, '_blank', 'noopener');
+      },
+      error: () => undefined
     });
   }
 }

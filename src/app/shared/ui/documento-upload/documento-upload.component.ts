@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, effect, inject, input, output, signal } from '@angular/core';
-import { OriginacionApiService } from '../../../core/originacion/originacion-api.service';
+import { SolicitudDocumentosService } from '../../../core/documentos/solicitud-documentos.service';
 import {
   DocumentoSolicitudResponse,
   RolPersonaSolicitud,
@@ -10,10 +10,10 @@ import { IconComponent } from '../icon/icon.component';
 
 /**
  * Un slot de documento KYC (DNI frente, recibo de servicio, etc.) del wizard
- * de solicitud — sube directo a GCS vía signed URL (mismo patrón que los
- * documentos de contrato, BC-03) y registra el resultado. Reemplazar un
- * documento ya subido simplemente sube uno nuevo — el backend conserva el
- * historial y expone el más reciente.
+ * de solicitud — sube por Document Management (DEC-130: con su dueño, la
+ * solicitud a la que está ligado y su hash) y registra el resultado.
+ * Reemplazar un documento ya subido simplemente sube uno nuevo — el backend
+ * conserva el historial y expone el más reciente.
  */
 @Component({
   selector: 'mt-documento-upload',
@@ -26,6 +26,8 @@ import { IconComponent } from '../icon/icon.component';
 export class DocumentoUploadComponent {
   label = input.required<string>();
   solicitudId = input.required<string>();
+  /** A quién pertenece el documento en Document Management: el cliente (titular o aval) de la solicitud. */
+  propietarioId = input.required<string>();
   rol = input.required<RolPersonaSolicitud>();
   tipo = input.required<TipoDocumentoSolicitud>();
   documento = input<DocumentoSolicitudResponse | null>(null);
@@ -34,7 +36,7 @@ export class DocumentoUploadComponent {
 
   documentoSubido = output<DocumentoSolicitudResponse>();
 
-  private readonly api = inject(OriginacionApiService);
+  private readonly documentosSolicitud = inject(SolicitudDocumentosService);
 
   protected readonly subiendo = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -55,32 +57,26 @@ export class DocumentoUploadComponent {
     this.subiendo.set(true);
     this.error.set(null);
 
-    this.api.solicitarSubidaDocumento(this.solicitudId(), archivo.name, archivo.type).subscribe({
-      next: (solicitud) => {
-        this.api.subirArchivoDocumento(solicitud, archivo).subscribe({
-          next: () => {
-            this.api.registrarDocumento(this.solicitudId(), { rol: this.rol(), tipo: this.tipo(), url: solicitud.publicUrl }).subscribe({
-              next: (documento) => {
-                this.documentoActual.set(documento);
-                this.subiendo.set(false);
-                this.documentoSubido.emit(documento);
-              },
-              error: () => {
-                this.subiendo.set(false);
-                this.error.set('Se subió el archivo pero no se pudo registrar. Intenta de nuevo.');
-              }
-            });
-          },
-          error: () => {
-            this.subiendo.set(false);
-            this.error.set('No se pudo subir el archivo. Vuelve a tocar el botón para intentarlo de nuevo.');
-          }
-        });
+    this.documentosSolicitud.subirYRegistrar(this.solicitudId(), this.propietarioId(), this.rol(), this.tipo(), archivo, this.label()).subscribe({
+      next: (documento) => {
+        this.documentoActual.set(documento);
+        this.subiendo.set(false);
+        this.documentoSubido.emit(documento);
       },
       error: () => {
         this.subiendo.set(false);
-        this.error.set('No se pudo iniciar la subida. Vuelve a tocar el botón para intentarlo de nuevo.');
+        this.error.set('No se pudo subir el archivo. Vuelve a tocar el botón para intentarlo de nuevo.');
       }
+    });
+  }
+
+  /** «Ver»: la URL de lectura de Document Management se pide al abrirlo (vence). */
+  protected ver(): void {
+    const documento = this.documentoActual();
+    if (!documento) return;
+    this.documentosSolicitud.urlDe(documento).subscribe({
+      next: (url) => (url ? window.open(url, '_blank', 'noopener') : this.error.set('Este documento no tiene archivo disponible.')),
+      error: () => this.error.set('No se pudo abrir el archivo.')
     });
   }
 }

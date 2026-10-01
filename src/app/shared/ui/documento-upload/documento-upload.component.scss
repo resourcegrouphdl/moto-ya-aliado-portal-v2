@@ -51,8 +51,18 @@
 }
 
 .documento-upload__ver {
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
   font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--color-primary);
+  cursor: pointer;
+
+  @media (pointer: coarse) {
+    min-height: var(--tap-min);
+  }
 }
 
 .documento-upload__label {

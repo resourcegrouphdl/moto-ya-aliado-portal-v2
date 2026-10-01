@@ -11,7 +11,7 @@
 
   <div class="documento-upload__accion">
     @if (documentoActual()) {
-      <a class="documento-upload__ver" [href]="documentoActual()!.url" target="_blank" rel="noopener">Ver</a>
+      <button type="button" class="documento-upload__ver" (click)="ver()">Ver</button>
     }
     <input #fileInput type="file" accept="image/*,application/pdf" [disabled]="subiendo()" (change)="onArchivoSeleccionado($event)" hidden />
     <mt-button

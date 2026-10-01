@@ -163,7 +163,7 @@ export class OriginacionApiService {
 
   registrarDocumento(
     solicitudId: string,
-    datos: { rol: RolPersonaSolicitud; tipo: TipoDocumentoSolicitud; url: string }
+    datos: { rol: RolPersonaSolicitud; tipo: TipoDocumentoSolicitud; url?: string; documentoId?: string }
   ): Observable<DocumentoSolicitudResponse> {
     return this.http.post<DocumentoSolicitudResponse>(`${this.base}/solicitudes/${solicitudId}/documentos`, datos);
   }
@@ -175,6 +175,13 @@ export class OriginacionApiService {
   /** Solo para documentos RECHAZADO/OBSERVADO — sube uno nuevo con solicitarSubidaDocumento()+subirArchivoDocumento() y confirma acá. Vuelve a PENDIENTE. */
   reemplazarDocumento(solicitudId: string, documentoId: string, url: string): Observable<DocumentoSolicitudResponse> {
     return this.http.put<DocumentoSolicitudResponse>(`${this.base}/solicitudes/${solicitudId}/documentos/${documentoId}/reemplazar`, { url });
+  }
+
+  /** Lo mismo con el archivo nuevo ya registrado en Document Management (DEC-130): se manda su id y el servidor comprueba que sea de esta solicitud. */
+  reemplazarDocumentoPorDm(solicitudId: string, documentoId: string, nuevoDocumentoId: string): Observable<DocumentoSolicitudResponse> {
+    return this.http.put<DocumentoSolicitudResponse>(`${this.base}/solicitudes/${solicitudId}/documentos/${documentoId}/reemplazar`, {
+      documentoId: nuevoDocumentoId
+    });
   }
 
   // ── Verificación de domicilio (etapa 5 de originación, DEC-030) ──────────

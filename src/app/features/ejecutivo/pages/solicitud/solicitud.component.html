@@ -167,6 +167,7 @@
           <mt-documento-upload
             [label]="slot.label"
             [solicitudId]="solicitud()!.id"
+            [propietarioId]="titular()!.id"
             rol="TITULAR"
             [tipo]="slot.tipo"
             [documento]="documentoDe(documentosTitular(), slot.tipo)"
@@ -341,6 +342,7 @@
           <mt-documento-upload
             [label]="slot.label"
             [solicitudId]="solicitud()!.id"
+            [propietarioId]="avalista()!.cliente.id"
             rol="AVALISTA"
             [tipo]="slot.tipo"
             [documento]="documentoDe(documentosAvalista(), slot.tipo)"

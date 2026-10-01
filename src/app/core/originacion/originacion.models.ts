@@ -376,7 +376,10 @@ export interface DocumentoSolicitudResponse {
   id: string;
   rol: RolPersonaSolicitud;
   tipo: TipoDocumentoSolicitud;
-  url: string;
+  /** El archivo de un documento anterior a Document Management; `null` en uno nuevo (DEC-130). */
+  url: string | null;
+  /** El Documento en Document Management: la URL de lectura se pide al abrirlo (vence). */
+  documentoId?: string | null;
   subidoEn: string;
   estado: EstadoDocumentoSolicitud;
   observaciones: string | null;

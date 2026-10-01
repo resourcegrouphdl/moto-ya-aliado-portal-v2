@@ -142,9 +142,14 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
   font-size: var(--text-sm);
   color: var(--color-primary);
   text-decoration: none;
+  cursor: pointer;
 
   @media (hover: hover) and (pointer: fine) {
     &:hover {
