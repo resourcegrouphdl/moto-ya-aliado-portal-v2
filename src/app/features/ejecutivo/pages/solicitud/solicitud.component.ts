@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { SolicitudDocumentosService } from '../../../../core/documentos/solicitud-documentos.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, catchError, debounceTime, distinctUntilChanged, filter, forkJoin, map, of, switchMap, tap, throwError } from 'rxjs';
@@ -228,6 +229,7 @@ const RELACIONES: SelectOption<string>[] = [
 export class SolicitudComponent {
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(OriginacionApiService);
+  private readonly documentosSolicitud = inject(SolicitudDocumentosService);
   private readonly route = inject(ActivatedRoute);
   private readonly preCalificacionApi = inject(PreCalificacionApiService);
   private readonly modalService = inject(ModalService);
@@ -259,6 +261,9 @@ export class SolicitudComponent {
   // DNI_FRENTE en cuanto exista la solicitud (ver continuarTitular/Avalista).
   protected readonly fotoIdentidadTitularUrl = signal<string | null>(null);
   protected readonly fotoIdentidadAvalistaUrl = signal<string | null>(null);
+  // Los archivos de esas fotos: se registran por Document Management al existir la solicitud (DEC-130, F4).
+  private readonly fotoIdentidadTitularArchivo = signal<File | null>(null);
+  private readonly fotoIdentidadAvalistaArchivo = signal<File | null>(null);
 
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -871,8 +876,9 @@ export class SolicitudComponent {
   }
 
   /** Prellena solo los campos que el OCR sí reconoció — numeroDocumento dispara el lookup de json.pe ya existente (valueChanges). */
-  protected onFotoIdentidadTitular({ datos, publicUrl }: DocumentoIdentidadExtraido): void {
+  protected onFotoIdentidadTitular({ datos, publicUrl, archivo }: DocumentoIdentidadExtraido): void {
     this.fotoIdentidadTitularUrl.set(publicUrl);
+    this.fotoIdentidadTitularArchivo.set(archivo);
     this.formTitular.patchValue({
       // Primero: si el OCR detectó un tipo distinto al marcado (subida antes
       // de llegar al selector), corregirlo ANTES de numeroDocumento — el
@@ -884,8 +890,9 @@ export class SolicitudComponent {
     });
   }
 
-  protected onFotoIdentidadAvalista({ datos, publicUrl }: DocumentoIdentidadExtraido): void {
+  protected onFotoIdentidadAvalista({ datos, publicUrl, archivo }: DocumentoIdentidadExtraido): void {
     this.fotoIdentidadAvalistaUrl.set(publicUrl);
+    this.fotoIdentidadAvalistaArchivo.set(archivo);
     this.formAvalista.patchValue({
       ...(datos.tipoDocumentoDetectado ? { tipoDocumento: datos.tipoDocumentoDetectado } : {}),
       ...(datos.numeroDocumento ? { numeroDocumento: datos.numeroDocumento } : {}),
@@ -1023,11 +1030,11 @@ export class SolicitudComponent {
     });
   }
 
-  /** La foto ya se subió a staging antes de crear la solicitud (mt-documento-identidad-upload) — se registra como DNI_FRENTE sin volver a subirla. */
+  /** La foto ya se subió a una carpeta de paso para leerla con el OCR (mt-documento-identidad-upload): al existir la solicitud se registra como DNI_FRENTE por Document Management (DEC-130, F4). */
   private registrarFotoIdentidadTitularSiExiste(solicitudId: string): void {
     const url = this.fotoIdentidadTitularUrl();
     if (!url) return;
-    this.api.registrarDocumento(solicitudId, { rol: 'TITULAR', tipo: 'DNI_FRENTE', url }).subscribe({
+    this.registrarDniPorDocumentManagement(solicitudId, this.titular()?.id, this.fotoIdentidadTitularArchivo(), 'TITULAR', url).subscribe({
       next: (documento) => this.onDocumentoTitularSubido(documento),
       error: () => {
         /* No bloquea — el vendedor puede subirla de nuevo manualmente en el paso de documentos. */
@@ -1107,12 +1114,27 @@ export class SolicitudComponent {
   private registrarFotoIdentidadAvalistaSiExiste(solicitudId: string): void {
     const url = this.fotoIdentidadAvalistaUrl();
     if (!url) return;
-    this.api.registrarDocumento(solicitudId, { rol: 'AVALISTA', tipo: 'DNI_FRENTE', url }).subscribe({
+    this.registrarDniPorDocumentManagement(solicitudId, this.avalista()?.cliente.id, this.fotoIdentidadAvalistaArchivo(), 'AVALISTA', url).subscribe({
       next: (documento) => this.onDocumentoAvalistaSubido(documento),
       error: () => {
         /* No bloquea — el vendedor puede subirla de nuevo manualmente en el paso de documentos. */
       }
     });
+  }
+
+  /**
+   * DEC-130 (F4): la foto se subió a una carpeta de paso para leerla con el OCR; el documento del expediente se registra por Document Management (con su dueño, la solicitud y su hash) volviendo a subir ese mismo archivo. Si eso falla, se registra como antes (la url de paso): el documento nunca se pierde.
+   */
+  private registrarDniPorDocumentManagement(
+    solicitudId: string,
+    propietarioId: string | undefined,
+    archivo: File | null,
+    rol: 'TITULAR' | 'AVALISTA',
+    urlDePaso: string
+  ): Observable<DocumentoSolicitudResponse> {
+    const respaldo = () => this.api.registrarDocumento(solicitudId, { rol, tipo: 'DNI_FRENTE', url: urlDePaso });
+    if (!archivo || !propietarioId) return respaldo();
+    return this.documentosSolicitud.subirYRegistrar(solicitudId, propietarioId, rol, 'DNI_FRENTE', archivo, 'DNI (frente)').pipe(catchError(() => respaldo()));
   }
 
   protected onDocumentoAvalistaSubido(documento: DocumentoSolicitudResponse): void {
@@ -1241,6 +1263,8 @@ export class SolicitudComponent {
     this.documentosAvalista.set([]);
     this.fotoIdentidadTitularUrl.set(null);
     this.fotoIdentidadAvalistaUrl.set(null);
+    this.fotoIdentidadTitularArchivo.set(null);
+    this.fotoIdentidadAvalistaArchivo.set(null);
     this.error.set(null);
     this.historialTitular.set([]);
     this.relacionCircularDetectada.set(false);

@@ -194,3 +194,90 @@ test('el detalle abre un documento nuevo por su enlace temporal y uno anterior p
   expect(registradoEnDm?.['propietarioId']).toBe(TITULAR_ID);
   expect(registradoEnDm?.['entidadRelacionadaId']).toBe(SOLICITUD_ID);
 });
+
+// ---- F4 (DEC-130): la foto del DNI que alimenta el OCR, en el wizard ----
+
+async function simularWizardConFotoDni(page: import('@playwright/test').Page, opts: { fallaDm: boolean }) {
+  const visto = { enDm: null as Record<string, unknown> | null, enSolicitud: null as Record<string, unknown> | null };
+  const clienteCreado = { ...CLIENTE, id: TITULAR_ID };
+  await page.route('**/partner/**', (r) => {
+    const url = r.request().url();
+    const metodo = r.request().method();
+    if (url.includes('/clientes/documento/') && metodo === 'GET') return r.fulfill({ status: 404, json: {} });
+    if (url.endsWith('/clientes') && metodo === 'POST') return r.fulfill({ status: 201, json: clienteCreado });
+    if (url.includes('/direccion') && metodo === 'PATCH') return r.fulfill({ json: clienteCreado });
+    if (url.endsWith('/solicitudes') && metodo === 'POST') return r.fulfill({ status: 201, json: EXPEDIENTE.solicitud });
+    if (url.endsWith(`/solicitudes/${SOLICITUD_ID}/documentos`) && metodo === 'POST') {
+      visto.enSolicitud = r.request().postDataJSON() as Record<string, unknown>;
+      return r.fulfill({ status: 201, json: documento({ id: 'ds-dni', tipo: 'DNI_FRENTE', documentoId: visto.enSolicitud['documentoId'] ?? null, url: visto.enSolicitud['url'] ?? null }) });
+    }
+    if (url.endsWith('/documentos-identidad/solicitar-subida')) {
+      return r.fulfill({ json: { uploadUrl: 'https://storage.test/paso', publicUrl: 'https://storage.test/paso-publica.jpg', gcsPath: 'staging/dni.jpg', headerRequeridoNombre: 'x-goog-meta-firebasestoragedownloadtokens', headerRequeridoValor: 'tok' } });
+    }
+    if (url.endsWith('/documentos-identidad/extraer')) {
+      return r.fulfill({ json: { numeroDocumento: '12345678', fechaNacimiento: '1990-01-02', fechaEmision: null, fechaCaducidad: null, nacionalidad: 'PERU', posibleProblemaCalidad: false, detalleProblemaCalidad: null, posibleFraude: false, tipoDocumentoDetectado: null } });
+    }
+    return r.fulfill({ json: [] });
+  });
+  await page.route('**/partner/riesgo/pre-calificacion**', (r) => r.fulfill({ status: 500, json: {} }));
+  await page.route('https://storage.test/**', (r) => r.fulfill({ status: 200 }));
+  await page.route('**/api/operaciones/documentos/solicitar-subida', (r) =>
+    opts.fallaDm
+      ? r.fulfill({ status: 500, json: {} })
+      : r.fulfill({ json: { uploadUrl: 'https://storage.test/dm', gcsUri: 'gs://bucket/dni.jpg', contentType: 'image/jpeg' } })
+  );
+  await page.route('**/api/operaciones/documentos', (r) => {
+    visto.enDm = r.request().postDataJSON() as Record<string, unknown>;
+    return r.fulfill({ status: 201, json: { id: DOCUMENTO_DM } });
+  });
+  return visto;
+}
+
+/** Llena el formulario del titular por el componente (el DNI, el mapa y la cascada de ubigeo no son lo que se prueba acá). */
+async function completarFormularioDelTitular(page: import('@playwright/test').Page) {
+  await page.evaluate(() => {
+    const ng = (window as unknown as { ng: { getComponent: (el: Element) => { formTitular: { patchValue: (v: unknown) => void } } } }).ng;
+    const pagina = ng.getComponent(document.querySelector('mt-solicitud-page')!);
+    pagina.formTitular.patchValue({
+      tipoDocumento: 'DNI', numeroDocumento: '12345678', nombres: 'JUAN CARLOS', apellidoPaterno: 'PEREZ', apellidoMaterno: 'GOMEZ',
+      telefono: '987654321', direccion: 'Av. Siempre Viva 742', fechaNacimiento: '1990-01-02', nacionalidad: 'PERU', estadoCivil: 'SOLTERO',
+      ubicacion: { ubigeoDistrito: '150122', departamento: 'LIMA', provincia: 'LIMA', distrito: 'MIRAFLORES' }
+    });
+  });
+}
+
+test('la foto del DNI del wizard se registra por Document Management cuando se crea la solicitud', async ({ page }) => {
+  await iniciarConRol(page, 'VENDEDOR_LIBRE');
+  const visto = await simularWizardConFotoDni(page, { fallaDm: false });
+  await page.goto('/ejecutivo/solicitud');
+  await page.locator('mt-documento-identidad-upload').first().locator('input[type="file"]').setInputFiles(ARCHIVO);
+  await expect(page.getByText(/Foto del DNI|listo|Cambiar/i).first()).toBeVisible();
+
+  await completarFormularioDelTitular(page);
+  await page.getByRole('button', { name: 'Continuar' }).click();
+  await expect(page.getByRole('heading', { name: 'Documentos del titular' })).toBeVisible();
+
+  await expect.poll(() => visto.enDm?.['tipo']).toBe('DNI');
+  expect(visto.enDm?.['propietarioId']).toBe(TITULAR_ID);
+  expect(visto.enDm?.['entidadRelacionadaId']).toBe(SOLICITUD_ID);
+  expect(visto.enDm?.['etiqueta']).toBe('DNI (frente)');
+  await expect.poll(() => visto.enSolicitud?.['documentoId']).toBe(DOCUMENTO_DM);
+  expect(visto.enSolicitud?.['tipo']).toBe('DNI_FRENTE');
+  expect(visto.enSolicitud?.['url']).toBeUndefined();
+});
+
+test('si Document Management no responde, la foto del DNI del wizard se registra como antes', async ({ page }) => {
+  await iniciarConRol(page, 'VENDEDOR_LIBRE');
+  const visto = await simularWizardConFotoDni(page, { fallaDm: true });
+  await page.goto('/ejecutivo/solicitud');
+  await page.locator('mt-documento-identidad-upload').first().locator('input[type="file"]').setInputFiles(ARCHIVO);
+  await expect(page.getByText(/Foto del DNI|listo|Cambiar/i).first()).toBeVisible();
+
+  await completarFormularioDelTitular(page);
+  await page.getByRole('button', { name: 'Continuar' }).click();
+  await expect(page.getByRole('heading', { name: 'Documentos del titular' })).toBeVisible();
+
+  await expect.poll(() => visto.enSolicitud?.['url']).toBe('https://storage.test/paso-publica.jpg');
+  expect(visto.enSolicitud?.['documentoId']).toBeUndefined();
+  expect(visto.enDm).toBeNull();
+});
