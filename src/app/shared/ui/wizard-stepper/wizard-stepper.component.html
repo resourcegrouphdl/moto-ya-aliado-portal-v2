@@ -1,0 +1,46 @@
+<ol class="stepper" aria-label="Progreso de la solicitud">
+  @for (item of pasos(); track item.id; let i = $index) {
+    <li
+      class="stepper__step"
+      [class.stepper__step--active]="i === indice()"
+      [class.stepper__step--done]="i < indice()"
+      [class.stepper__step--clickable]="i < indice()"
+      [attr.aria-current]="i === indice() ? 'step' : null"
+      [attr.role]="i < indice() ? 'button' : null"
+      [attr.tabindex]="i < indice() ? 0 : null"
+      (click)="ir(item.id, i)"
+      (keydown.enter)="ir(item.id, i)"
+    >
+      <span class="stepper__dot">
+        @if (i < indice()) {
+          <mt-icon name="check" [size]="16" />
+        } @else {
+          <mt-icon [name]="item.icono" [size]="16" />
+        }
+      </span>
+      <span class="stepper__label">{{ item.etiqueta }}</span>
+      @if (i < pasos().length - 1) {
+        <span class="stepper__line"></span>
+      }
+    </li>
+  }
+</ol>
+
+<div
+  class="stepper-compact"
+  role="progressbar"
+  aria-label="Progreso de la solicitud"
+  aria-valuemin="1"
+  [attr.aria-valuemax]="pasos().length"
+  [attr.aria-valuenow]="indice() + 1"
+>
+  <div class="stepper-compact__texto">
+    <strong>{{ pasos()[indice()].etiqueta }}</strong>
+    <span>Paso {{ indice() + 1 }} de {{ pasos().length }}</span>
+  </div>
+  <div class="stepper-compact__barra" aria-hidden="true">
+    @for (item of pasos(); track item.id; let i = $index) {
+      <span class="stepper-compact__tramo" [class.stepper-compact__tramo--hecho]="i <= indice()"></span>
+    }
+  </div>
+</div>

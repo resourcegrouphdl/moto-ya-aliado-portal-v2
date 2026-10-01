@@ -37,6 +37,8 @@ export class InputComponent implements ControlValueAccessor {
   hint = input<string>();
   /** Se reenvía al <input> real — el atributo puesto directo en <mt-input> no llega al control interno. */
   autocomplete = input<string>();
+  /** Teclado que abre el móvil (numeric para el DNI, decimal para importes): no cambia el tipo ni el valor del campo. */
+  inputmode = input<string>();
 
   protected value = signal('');
   protected focused = signal(false);

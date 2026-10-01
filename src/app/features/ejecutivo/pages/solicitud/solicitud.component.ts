@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, catchError, debounceTime, distinctUntilChanged, filter, forkJoin, map, of, switchMap, tap, throwError } from 'rxjs';
@@ -8,6 +8,7 @@ import { Observable, catchError, debounceTime, distinctUntilChanged, filter, for
 import { AlertComponent } from '../../../../shared/ui/alert/alert.component';
 import { BadgeComponent } from '../../../../shared/ui/badge/badge.component';
 import { ButtonComponent } from '../../../../shared/ui/button/button.component';
+import { WizardStepperComponent } from '../../../../shared/ui/wizard-stepper/wizard-stepper.component';
 import { CardComponent } from '../../../../shared/ui/card/card.component';
 import { Coordenadas, DireccionParseada, GpsPickerComponent } from '../../../../shared/ui/gps-picker/gps-picker.component';
 import {
@@ -204,6 +205,7 @@ const RELACIONES: SelectOption<string>[] = [
   standalone: true,
   imports: [
     ReactiveFormsModule,
+    RouterLink,
     AlertComponent,
     BadgeComponent,
     ButtonComponent,
@@ -216,7 +218,8 @@ const RELACIONES: SelectOption<string>[] = [
     DateInputComponent,
     SelectComponent,
     UbigeoSelectorComponent,
-    VerificacionEmailComponent
+    VerificacionEmailComponent,
+    WizardStepperComponent
   ],
   templateUrl: './solicitud.component.html',
   styleUrl: './solicitud.component.scss',
@@ -1258,10 +1261,18 @@ export class SolicitudComponent {
     this.paso.set('titular');
   }
 
-  irAPaso(destino: Paso): void {
+  /** «Atrás» del pie de cada paso: lo ya guardado se conserva (los formularios no se vacían). */
+  atras(): void {
+    const i = this.pasoIndex();
+    if (i > 0) {
+      this.paso.set(this.pasos[i - 1].id);
+    }
+  }
+
+  irAPaso(destino: string): void {
     const destinoIndex = this.pasos.findIndex((p) => p.id === destino);
     if (destinoIndex >= 0 && destinoIndex < this.pasoIndex()) {
-      this.paso.set(destino);
+      this.paso.set(destino as Paso);
     }
   }
 
