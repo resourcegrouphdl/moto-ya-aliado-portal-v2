@@ -243,13 +243,8 @@ export class SolicitudDetailComponent {
     input.value = '';
     if (!archivo) return;
 
-    // El dueño del documento nuevo es la misma persona del documento que reemplaza: el titular o el aval de esta solicitud.
-    const exp = this.expediente();
-    const propietarioId = documento.rol === 'TITULAR' ? exp?.titular.id : exp?.avalista?.id;
-    if (!propietarioId) return;
-
     this.reemplazandoDocumentoId.set(documento.id);
-    this.documentosSolicitud.subirYReemplazar(this.solicitudId, propietarioId, documento, archivo, this.labelDocumento(documento.rol, documento.tipo)).subscribe({
+    this.documentosSolicitud.subirYReemplazar(this.solicitudId, documento, archivo, this.labelDocumento(documento.rol, documento.tipo)).subscribe({
       next: (actualizado) => {
         this.documentos.update((lista) => lista.map((d) => (d.id === actualizado.id ? actualizado : d)));
         this.reemplazandoDocumentoId.set(null);
@@ -260,7 +255,7 @@ export class SolicitudDetailComponent {
 
   /** «Ver»: la URL de lectura de Document Management se pide al abrirlo (vence); un documento anterior abre su enlace de siempre. */
   protected verDocumento(documento: DocumentoSolicitudResponse): void {
-    this.documentosSolicitud.urlDe(documento).subscribe({
+    this.documentosSolicitud.urlDe(this.solicitudId, documento).subscribe({
       next: (url) => {
         if (url) window.open(url, '_blank', 'noopener');
       },

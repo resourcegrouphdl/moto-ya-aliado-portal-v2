@@ -6,6 +6,10 @@ import { iniciarConRol } from './sesion';
  * cliente: titular o aval) y la solicitud a la que está ligado, y la solicitud guarda el **id del Documento** —no una URL pública de
  * Firebase—. Para verlo, la URL de lectura se pide al abrirlo (vence). Un documento anterior sigue abriendo su enlace de siempre.
  *
+ * El portal del aliado **no llama a Document Management directo** (el gateway le cierra `/api/operaciones/**`): pide la URL de subida, registra lo
+ * subido y lee por `motoya-api` (`…/documentos/dm/*`), que comprueba que la solicitud sea suya y resuelve el tipo y el dueño. Cada prueba verifica
+ * que **ninguna** llamada salga hacia `/api/operaciones/documentos`.
+ *
  * Toda la red está simulada: no se sube ningún archivo a ningún bucket real.
  */
 const SOLICITUD_ID = 'sol-dm-1';
@@ -31,17 +35,57 @@ const EXPEDIENTE = {
 
 const ARCHIVO = { name: 'dni-frente.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]) };
 
+
+/**
+ * Las llamadas a Document Management (`/api/operaciones/documentos`) que haga el portal: en producción el gateway las rechaza para el pool `tienda`, así que
+ * no debe haber ninguna. (El catálogo de modelos y el stock, también de `api-operaciones`, sí son lectura permitida a `tienda`.)
+ */
+async function vigilarOperaciones(page: import('@playwright/test').Page) {
+  const llamadas: string[] = [];
+  await page.route('**/api/operaciones/documentos**', (r) => {
+    llamadas.push(`${r.request().method()} ${r.request().url()}`);
+    return r.fulfill({ status: 403, json: { codigo: 'POOL_INCORRECTO' } });
+  });
+  return llamadas;
+}
+
+interface VistoDm {
+  solicitud: Record<string, unknown> | null;
+  registro: Record<string, unknown> | null;
+  lecturas: string[];
+}
+
+/** Simula `motoya-api` como intermediario de Document Management: URL de subida, registro del archivo subido y lectura temporal. */
+async function simularDmPorMotoya(page: import('@playwright/test').Page, opts: { documentoId?: string; fallaSubida?: boolean } = {}): Promise<VistoDm> {
+  const visto: VistoDm = { solicitud: null, registro: null, lecturas: [] };
+  await page.route('**/documentos/dm/solicitar-subida', (r) => {
+    visto.solicitud = r.request().postDataJSON() as Record<string, unknown>;
+    return opts.fallaSubida
+      ? r.fulfill({ status: 500, json: {} })
+      : r.fulfill({ json: { uploadUrl: 'https://storage.test/subida', gcsUri: 'gs://bucket/archivo.jpg', contentType: 'image/jpeg' } });
+  });
+  await page.route('https://storage.test/**', (r) => r.fulfill({ status: 200 }));
+  await page.route('**/documentos/dm/registrar-subido', (r) => {
+    visto.registro = r.request().postDataJSON() as Record<string, unknown>;
+    return r.fulfill({ json: { documentoId: opts.documentoId ?? DOCUMENTO_DM } });
+  });
+  await page.route('**/documentos/*/url', (r) => {
+    visto.lecturas.push(r.request().url());
+    return r.fulfill({ json: { url: 'https://storage.test/lectura-temporal' } });
+  });
+  return visto;
+}
+
 const documento = (extra: Record<string, unknown>) => ({
   id: 'ds-1', rol: 'TITULAR', tipo: 'LICENCIA_FRENTE', url: null, documentoId: null, subidoEn: '2026-10-01T10:00:00-05:00',
   estado: 'PENDIENTE', observaciones: null, validadoEn: null, ...extra
 });
 
-test('un documento del titular se sube por Document Management con su dueño y su solicitud', async ({ page }) => {
-  await iniciarConRol(page, 'VENDEDOR_LIBRE');
 
-  let registradoEnDm: Record<string, unknown> | null = null;
+test('un documento del titular se sube por Document Management a través de motoya-api', async ({ page }) => {
+  await iniciarConRol(page, 'VENDEDOR_LIBRE');
+  const operaciones = await vigilarOperaciones(page);
   let registradoEnSolicitud: Record<string, unknown> | null = null;
-  let abrioLectura = false;
 
   await page.route('**/partner/**', (r) => {
     const url = r.request().url();
@@ -54,20 +98,7 @@ test('un documento del titular se sube por Document Management con su dueño y s
   });
   // Después de la ruta amplia: la última registrada es la que gana. Sin la pre-calificación el wizard avisa discreto y sigue.
   await page.route('**/partner/riesgo/pre-calificacion**', (r) => r.fulfill({ status: 500, json: {} }));
-  await page.route('**/api/operaciones/documentos/solicitar-subida', (r) =>
-    r.fulfill({ json: { uploadUrl: 'https://storage.test/subida', gcsUri: 'gs://bucket/dni.jpg', contentType: 'image/jpeg' } })
-  );
-  await page.route('https://storage.test/**', (r) => r.fulfill({ status: 200 }));
-  await page.route('**/api/operaciones/documentos', (r) => {
-    registradoEnDm = r.request().postDataJSON() as Record<string, unknown>;
-    return r.fulfill({ status: 201, json: { id: DOCUMENTO_DM } });
-  });
-  await page.route(`**/api/operaciones/documentos/${DOCUMENTO_DM}/url`, (r) => {
-    abrioLectura = true;
-    return r.fulfill({ json: { url: 'https://storage.test/lectura-temporal' } });
-  });
-  // El enlace de lectura temporal abre una pestaña: se atiende sin tocar la red.
-  await page.route('https://storage.test/lectura-temporal', (r) => r.fulfill({ status: 200, contentType: 'text/plain', body: 'ok' }));
+  const visto = await simularDmPorMotoya(page);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/ejecutivo/solicitud/${SOLICITUD_ID}/continuar`);
@@ -80,31 +111,32 @@ test('un documento del titular se sube por Document Management con su dueño y s
 
   await page.locator('mt-documento-upload').first().locator('input[type="file"]').setInputFiles(ARCHIVO);
 
-  // En Document Management: su tipo, su dueño (el cliente titular) y la solicitud a la que está ligado.
-  // El primer slot del paso es la licencia (frente): su tipo del catálogo de DM es LICENCIA_CONDUCIR. El DNI entra por la foto del OCR (F4).
-  await expect.poll(() => registradoEnDm?.['tipo']).toBe('LICENCIA_CONDUCIR');
-  expect(registradoEnDm?.['etiqueta']).toBe('Licencia de conducir — frente');
-  expect(registradoEnDm?.['propietarioId']).toBe(TITULAR_ID);
-  expect(registradoEnDm?.['entidadRelacionadaTipo']).toBe('SOLICITUD_CREDITO');
-  expect(registradoEnDm?.['entidadRelacionadaId']).toBe(SOLICITUD_ID);
-  expect(typeof registradoEnDm?.['hashIntegridad']).toBe('string');
-
-  // En la solicitud: el id del Documento, no una url.
+  // 1) La URL de subida: pide el slot (el servidor resuelve el tipo del catálogo de Document Management).
+  await expect.poll(() => visto.solicitud?.['tipo']).toBe('LICENCIA_FRENTE');
+  expect(visto.solicitud?.['contentType']).toBe('image/jpeg');
+  // 2) El registro del archivo subido: el rol y el archivo; el dueño y la solicitud los pone el servidor, no el navegador.
+  await expect.poll(() => visto.registro?.['gcsUri']).toBe('gs://bucket/archivo.jpg');
+  expect(visto.registro?.['rol']).toBe('TITULAR');
+  expect(visto.registro?.['tipo']).toBe('LICENCIA_FRENTE');
+  expect(visto.registro?.['etiqueta']).toBe('Licencia de conducir — frente');
+  expect(visto.registro).not.toHaveProperty('propietarioId');
+  // 3) En la solicitud: el id del Documento, no una url.
   await expect.poll(() => registradoEnSolicitud?.['documentoId']).toBe(DOCUMENTO_DM);
   expect(registradoEnSolicitud?.['url']).toBeUndefined();
   expect(registradoEnSolicitud?.['tipo']).toBe('LICENCIA_FRENTE');
 
-  // «Ver» pide la URL de lectura temporal al abrirlo.
+  // «Ver» pide la URL de lectura temporal al abrirlo, por la fila del documento en la solicitud.
   const nueva = page.waitForEvent('popup');
   await page.getByRole('button', { name: 'Ver' }).first().click();
   await nueva;
-  expect(abrioLectura).toBe(true);
+  expect(visto.lecturas).toEqual([expect.stringContaining(`/solicitudes/${SOLICITUD_ID}/documentos/ds-1/url`)]);
+  expect(operaciones).toEqual([]);
   await page.screenshot({ path: 'test-results/solicitud-documento-dm.png' });
 });
 
-test('el documento del aval se sube con el aval como dueño', async ({ page }) => {
+test('el documento del aval se registra con el rol de aval', async ({ page }) => {
   await iniciarConRol(page, 'VENDEDOR_LIBRE');
-  let registradoEnDm: Record<string, unknown> | null = null;
+  const operaciones = await vigilarOperaciones(page);
 
   await page.route('**/partner/**', (r) => {
     const url = r.request().url();
@@ -112,16 +144,8 @@ test('el documento del aval se sube con el aval como dueño', async ({ page }) =
     if (url.endsWith('/documentos') && r.request().method() === 'POST') return r.fulfill({ status: 201, json: documento({ rol: 'AVALISTA', documentoId: DOCUMENTO_DM }) });
     return r.fulfill({ json: [] });
   });
-  // Después de la ruta amplia: la última registrada es la que gana. Sin la pre-calificación el wizard avisa discreto y sigue.
   await page.route('**/partner/riesgo/pre-calificacion**', (r) => r.fulfill({ status: 500, json: {} }));
-  await page.route('**/api/operaciones/documentos/solicitar-subida', (r) =>
-    r.fulfill({ json: { uploadUrl: 'https://storage.test/subida', gcsUri: 'gs://bucket/dni.jpg', contentType: 'image/jpeg' } })
-  );
-  await page.route('https://storage.test/**', (r) => r.fulfill({ status: 200 }));
-  await page.route('**/api/operaciones/documentos', (r) => {
-    registradoEnDm = r.request().postDataJSON() as Record<string, unknown>;
-    return r.fulfill({ status: 201, json: { id: DOCUMENTO_DM } });
-  });
+  const visto = await simularDmPorMotoya(page);
 
   await page.goto(`/ejecutivo/solicitud/${SOLICITUD_ID}/continuar`);
   await expect(page.getByRole('heading', { name: 'La moto' })).toBeVisible();
@@ -129,12 +153,14 @@ test('el documento del aval se sube con el aval como dueño', async ({ page }) =
   await expect(page.getByRole('heading', { name: 'Documentos del aval' })).toBeVisible();
 
   await page.locator('mt-documento-upload').first().locator('input[type="file"]').setInputFiles(ARCHIVO);
-  await expect.poll(() => registradoEnDm?.['propietarioId']).toBe(AVAL_ID);
-  expect(registradoEnDm?.['entidadRelacionadaId']).toBe(SOLICITUD_ID);
+  await expect.poll(() => visto.registro?.['rol']).toBe('AVALISTA');
+  expect(visto.registro).not.toHaveProperty('propietarioId');
+  expect(operaciones).toEqual([]);
 });
 
 test('el detalle abre un documento nuevo por su enlace temporal y uno anterior por el de siempre; y reemplaza por Document Management', async ({ page }) => {
   await iniciarConRol(page, 'VENDEDOR_LIBRE');
+  const operaciones = await vigilarOperaciones(page);
   // Se registran las URLs que la pantalla pide abrir (un popup real no hereda las rutas simuladas).
   await page.addInitScript(() => {
     (window as unknown as { __abiertas: string[] }).__abiertas = [];
@@ -146,9 +172,7 @@ test('el detalle abre un documento nuevo por su enlace temporal y uno anterior p
   const abiertas = () => page.evaluate(() => (window as unknown as { __abiertas: string[] }).__abiertas);
   const legado = documento({ id: 'ds-legado', tipo: 'FACHADA', url: 'https://storage.test/legado.jpg', estado: 'RECHAZADO', observaciones: 'borrosa' });
   const nuevo = documento({ id: 'ds-nuevo', tipo: 'SELFIE', documentoId: DOCUMENTO_DM });
-  let pidioLectura = 0;
   let reemplazo: Record<string, unknown> | null = null;
-  let registradoEnDm: Record<string, unknown> | null = null;
 
   await page.route('**/partner/**', (r) => {
     const url = r.request().url();
@@ -160,18 +184,7 @@ test('el detalle abre un documento nuevo por su enlace temporal y uno anterior p
     }
     return r.fulfill({ json: [] });
   });
-  await page.route('**/api/operaciones/documentos/solicitar-subida', (r) =>
-    r.fulfill({ json: { uploadUrl: 'https://storage.test/subida', gcsUri: 'gs://bucket/fachada.jpg', contentType: 'image/jpeg' } })
-  );
-  await page.route('https://storage.test/**', (r) => r.fulfill({ status: 200 }));
-  await page.route('**/api/operaciones/documentos', (r) => {
-    registradoEnDm = r.request().postDataJSON() as Record<string, unknown>;
-    return r.fulfill({ status: 201, json: { id: 'doc-dm-fachada' } });
-  });
-  await page.route(`**/api/operaciones/documentos/${DOCUMENTO_DM}/url`, (r) => {
-    pidioLectura += 1;
-    return r.fulfill({ json: { url: 'https://storage.test/lectura-temporal' } });
-  });
+  const visto = await simularDmPorMotoya(page, { documentoId: 'doc-dm-fachada' });
 
   await page.goto(`/ejecutivo/solicitud/${SOLICITUD_ID}`);
   await expect(page.getByText('Selfie').first()).toBeVisible();
@@ -179,26 +192,28 @@ test('el detalle abre un documento nuevo por su enlace temporal y uno anterior p
   // Uno nuevo: la URL de lectura se pide al abrirlo.
   await page.getByRole('button', { name: /Selfie/ }).click();
   await expect.poll(abiertas).toEqual(['https://storage.test/lectura-temporal']);
-  expect(pidioLectura).toBe(1);
+  expect(visto.lecturas).toEqual([expect.stringContaining('/documentos/ds-nuevo/url')]);
 
   // Uno anterior a Document Management: abre su enlace de siempre, sin pedir nada.
   await page.getByRole('button', { name: /Fachada/ }).click();
   await expect.poll(abiertas).toEqual(['https://storage.test/lectura-temporal', 'https://storage.test/legado.jpg']);
-  expect(pidioLectura).toBe(1);
+  expect(visto.lecturas).toHaveLength(1);
 
-  // Reemplazar el rechazado: el archivo nuevo entra por DM con el titular de dueño y manda su id.
+  // Reemplazar el rechazado: el archivo nuevo entra por DM con el rol del documento y manda su id.
   await page.locator('#reemplazo-ds-legado').setInputFiles(ARCHIVO);
   await expect.poll(() => reemplazo?.['documentoId']).toBe('doc-dm-fachada');
   expect(reemplazo?.['url']).toBeUndefined();
-  expect(registradoEnDm?.['tipo']).toBe('FACHADA_DOMICILIO');
-  expect(registradoEnDm?.['propietarioId']).toBe(TITULAR_ID);
-  expect(registradoEnDm?.['entidadRelacionadaId']).toBe(SOLICITUD_ID);
+  expect(visto.solicitud?.['tipo']).toBe('FACHADA');
+  expect(visto.registro?.['rol']).toBe('TITULAR');
+  expect(visto.registro?.['tipo']).toBe('FACHADA');
+  expect(operaciones).toEqual([]);
 });
 
 // ---- F4 (DEC-130): la foto del DNI que alimenta el OCR, en el wizard ----
 
 async function simularWizardConFotoDni(page: import('@playwright/test').Page, opts: { fallaDm: boolean }) {
-  const visto = { enDm: null as Record<string, unknown> | null, enSolicitud: null as Record<string, unknown> | null };
+  const operaciones = await vigilarOperaciones(page);
+  const enSolicitud: { cuerpo: Record<string, unknown> | null } = { cuerpo: null };
   const clienteCreado = { ...CLIENTE, id: TITULAR_ID };
   await page.route('**/partner/**', (r) => {
     const url = r.request().url();
@@ -208,8 +223,8 @@ async function simularWizardConFotoDni(page: import('@playwright/test').Page, op
     if (url.includes('/direccion') && metodo === 'PATCH') return r.fulfill({ json: clienteCreado });
     if (url.endsWith('/solicitudes') && metodo === 'POST') return r.fulfill({ status: 201, json: EXPEDIENTE.solicitud });
     if (url.endsWith(`/solicitudes/${SOLICITUD_ID}/documentos`) && metodo === 'POST') {
-      visto.enSolicitud = r.request().postDataJSON() as Record<string, unknown>;
-      return r.fulfill({ status: 201, json: documento({ id: 'ds-dni', tipo: 'DNI_FRENTE', documentoId: visto.enSolicitud['documentoId'] ?? null, url: visto.enSolicitud['url'] ?? null }) });
+      enSolicitud.cuerpo = r.request().postDataJSON() as Record<string, unknown>;
+      return r.fulfill({ status: 201, json: documento({ id: 'ds-dni', tipo: 'DNI_FRENTE', documentoId: enSolicitud.cuerpo['documentoId'] ?? null, url: enSolicitud.cuerpo['url'] ?? null }) });
     }
     if (url.endsWith('/documentos-identidad/solicitar-subida')) {
       return r.fulfill({ json: { uploadUrl: 'https://storage.test/paso', publicUrl: 'https://storage.test/paso-publica.jpg', gcsPath: 'staging/dni.jpg', headerRequeridoNombre: 'x-goog-meta-firebasestoragedownloadtokens', headerRequeridoValor: 'tok' } });
@@ -220,17 +235,8 @@ async function simularWizardConFotoDni(page: import('@playwright/test').Page, op
     return r.fulfill({ json: [] });
   });
   await page.route('**/partner/riesgo/pre-calificacion**', (r) => r.fulfill({ status: 500, json: {} }));
-  await page.route('https://storage.test/**', (r) => r.fulfill({ status: 200 }));
-  await page.route('**/api/operaciones/documentos/solicitar-subida', (r) =>
-    opts.fallaDm
-      ? r.fulfill({ status: 500, json: {} })
-      : r.fulfill({ json: { uploadUrl: 'https://storage.test/dm', gcsUri: 'gs://bucket/dni.jpg', contentType: 'image/jpeg' } })
-  );
-  await page.route('**/api/operaciones/documentos', (r) => {
-    visto.enDm = r.request().postDataJSON() as Record<string, unknown>;
-    return r.fulfill({ status: 201, json: { id: DOCUMENTO_DM } });
-  });
-  return visto;
+  const visto = await simularDmPorMotoya(page, { fallaSubida: opts.fallaDm });
+  return { visto, enSolicitud, operaciones };
 }
 
 /** Llena el formulario del titular por el componente (el DNI, el mapa y la cascada de ubigeo no son lo que se prueba acá). */
@@ -248,7 +254,7 @@ async function completarFormularioDelTitular(page: import('@playwright/test').Pa
 
 test('la foto del DNI del wizard se registra por Document Management cuando se crea la solicitud', async ({ page }) => {
   await iniciarConRol(page, 'VENDEDOR_LIBRE');
-  const visto = await simularWizardConFotoDni(page, { fallaDm: false });
+  const { visto, enSolicitud, operaciones } = await simularWizardConFotoDni(page, { fallaDm: false });
   await page.goto('/ejecutivo/solicitud');
   await page.locator('mt-documento-identidad-upload').first().locator('input[type="file"]').setInputFiles(ARCHIVO);
   await expect(page.getByText(/Foto del DNI|listo|Cambiar/i).first()).toBeVisible();
@@ -257,18 +263,19 @@ test('la foto del DNI del wizard se registra por Document Management cuando se c
   await page.getByRole('button', { name: 'Continuar' }).click();
   await expect(page.getByRole('heading', { name: 'Documentos del titular' })).toBeVisible();
 
-  await expect.poll(() => visto.enDm?.['tipo']).toBe('DNI');
-  expect(visto.enDm?.['propietarioId']).toBe(TITULAR_ID);
-  expect(visto.enDm?.['entidadRelacionadaId']).toBe(SOLICITUD_ID);
-  expect(visto.enDm?.['etiqueta']).toBe('DNI (frente)');
-  await expect.poll(() => visto.enSolicitud?.['documentoId']).toBe(DOCUMENTO_DM);
-  expect(visto.enSolicitud?.['tipo']).toBe('DNI_FRENTE');
-  expect(visto.enSolicitud?.['url']).toBeUndefined();
+  await expect.poll(() => visto.registro?.['tipo']).toBe('DNI_FRENTE');
+  expect(visto.registro?.['rol']).toBe('TITULAR');
+  expect(visto.registro?.['etiqueta']).toBe('DNI (frente)');
+  expect(visto.solicitud?.['tipo']).toBe('DNI_FRENTE');
+  await expect.poll(() => enSolicitud.cuerpo?.['documentoId']).toBe(DOCUMENTO_DM);
+  expect(enSolicitud.cuerpo?.['tipo']).toBe('DNI_FRENTE');
+  expect(enSolicitud.cuerpo?.['url']).toBeUndefined();
+  expect(operaciones).toEqual([]);
 });
 
 test('si Document Management no responde, la foto del DNI del wizard se registra como antes', async ({ page }) => {
   await iniciarConRol(page, 'VENDEDOR_LIBRE');
-  const visto = await simularWizardConFotoDni(page, { fallaDm: true });
+  const { visto, enSolicitud } = await simularWizardConFotoDni(page, { fallaDm: true });
   await page.goto('/ejecutivo/solicitud');
   await page.locator('mt-documento-identidad-upload').first().locator('input[type="file"]').setInputFiles(ARCHIVO);
   await expect(page.getByText(/Foto del DNI|listo|Cambiar/i).first()).toBeVisible();
@@ -277,7 +284,7 @@ test('si Document Management no responde, la foto del DNI del wizard se registra
   await page.getByRole('button', { name: 'Continuar' }).click();
   await expect(page.getByRole('heading', { name: 'Documentos del titular' })).toBeVisible();
 
-  await expect.poll(() => visto.enSolicitud?.['url']).toBe('https://storage.test/paso-publica.jpg');
-  expect(visto.enSolicitud?.['documentoId']).toBeUndefined();
-  expect(visto.enDm).toBeNull();
+  await expect.poll(() => enSolicitud.cuerpo?.['url']).toBe('https://storage.test/paso-publica.jpg');
+  expect(enSolicitud.cuerpo?.['documentoId']).toBeUndefined();
+  expect(visto.registro).toBeNull();
 });

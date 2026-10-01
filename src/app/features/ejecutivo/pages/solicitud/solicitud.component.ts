@@ -1034,7 +1034,7 @@ export class SolicitudComponent {
   private registrarFotoIdentidadTitularSiExiste(solicitudId: string): void {
     const url = this.fotoIdentidadTitularUrl();
     if (!url) return;
-    this.registrarDniPorDocumentManagement(solicitudId, this.titular()?.id, this.fotoIdentidadTitularArchivo(), 'TITULAR', url).subscribe({
+    this.registrarDniPorDocumentManagement(solicitudId, this.fotoIdentidadTitularArchivo(), 'TITULAR', url).subscribe({
       next: (documento) => this.onDocumentoTitularSubido(documento),
       error: () => {
         /* No bloquea — el vendedor puede subirla de nuevo manualmente en el paso de documentos. */
@@ -1114,7 +1114,7 @@ export class SolicitudComponent {
   private registrarFotoIdentidadAvalistaSiExiste(solicitudId: string): void {
     const url = this.fotoIdentidadAvalistaUrl();
     if (!url) return;
-    this.registrarDniPorDocumentManagement(solicitudId, this.avalista()?.cliente.id, this.fotoIdentidadAvalistaArchivo(), 'AVALISTA', url).subscribe({
+    this.registrarDniPorDocumentManagement(solicitudId, this.fotoIdentidadAvalistaArchivo(), 'AVALISTA', url).subscribe({
       next: (documento) => this.onDocumentoAvalistaSubido(documento),
       error: () => {
         /* No bloquea — el vendedor puede subirla de nuevo manualmente en el paso de documentos. */
@@ -1127,14 +1127,13 @@ export class SolicitudComponent {
    */
   private registrarDniPorDocumentManagement(
     solicitudId: string,
-    propietarioId: string | undefined,
     archivo: File | null,
     rol: 'TITULAR' | 'AVALISTA',
     urlDePaso: string
   ): Observable<DocumentoSolicitudResponse> {
     const respaldo = () => this.api.registrarDocumento(solicitudId, { rol, tipo: 'DNI_FRENTE', url: urlDePaso });
-    if (!archivo || !propietarioId) return respaldo();
-    return this.documentosSolicitud.subirYRegistrar(solicitudId, propietarioId, rol, 'DNI_FRENTE', archivo, 'DNI (frente)').pipe(catchError(() => respaldo()));
+    if (!archivo) return respaldo();
+    return this.documentosSolicitud.subirYRegistrar(solicitudId, rol, 'DNI_FRENTE', archivo, 'DNI (frente)').pipe(catchError(() => respaldo()));
   }
 
   protected onDocumentoAvalistaSubido(documento: DocumentoSolicitudResponse): void {

@@ -27,7 +27,6 @@ export class DocumentoUploadComponent {
   label = input.required<string>();
   solicitudId = input.required<string>();
   /** A quién pertenece el documento en Document Management: el cliente (titular o aval) de la solicitud. */
-  propietarioId = input.required<string>();
   rol = input.required<RolPersonaSolicitud>();
   tipo = input.required<TipoDocumentoSolicitud>();
   documento = input<DocumentoSolicitudResponse | null>(null);
@@ -57,7 +56,7 @@ export class DocumentoUploadComponent {
     this.subiendo.set(true);
     this.error.set(null);
 
-    this.documentosSolicitud.subirYRegistrar(this.solicitudId(), this.propietarioId(), this.rol(), this.tipo(), archivo, this.label()).subscribe({
+    this.documentosSolicitud.subirYRegistrar(this.solicitudId(), this.rol(), this.tipo(), archivo, this.label()).subscribe({
       next: (documento) => {
         this.documentoActual.set(documento);
         this.subiendo.set(false);
@@ -74,7 +73,7 @@ export class DocumentoUploadComponent {
   protected ver(): void {
     const documento = this.documentoActual();
     if (!documento) return;
-    this.documentosSolicitud.urlDe(documento).subscribe({
+    this.documentosSolicitud.urlDe(this.solicitudId(), documento).subscribe({
       next: (url) => (url ? window.open(url, '_blank', 'noopener') : this.error.set('Este documento no tiene archivo disponible.')),
       error: () => this.error.set('No se pudo abrir el archivo.')
     });
