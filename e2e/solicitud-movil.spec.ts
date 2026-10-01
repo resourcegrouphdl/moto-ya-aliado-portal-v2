@@ -93,3 +93,17 @@ test('escritorio: se conserva el stepper completo y el compacto no aparece', asy
   await expect(page.getByText('Chasis ' + VEHICULO.numeroChasis)).toBeVisible();
   await page.screenshot({ path: 'test-results/wizard-escritorio-revision.png' });
 });
+
+test('ningún ícono se dibuja más grande que su caja (no se recortan)', async ({ page }) => {
+  await simular(page, expediente(null, 0));
+  await iniciarConRol(page, 'VENDEDOR_LIBRE');
+  await page.goto('/ejecutivo/solicitud');
+  await expect(page.getByRole('heading', { name: 'Datos del titular' })).toBeVisible();
+  // La hoja de Material Symbols fija 24 px: sin el tamaño en línea del glifo, un ícono de 16 px salía cortado.
+  const recortados = await page.evaluate(() =>
+    Array.from(document.querySelectorAll<HTMLElement>('.material-symbols-rounded'))
+      .filter((el) => el.clientWidth > 0 && parseFloat(getComputedStyle(el).fontSize) > el.clientWidth + 0.5)
+      .map((el) => el.textContent)
+  );
+  expect(recortados).toEqual([]);
+});
