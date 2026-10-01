@@ -74,9 +74,9 @@
                   @for (doc of grupo.lista; track doc.id) {
                     <li class="documentos-list__item">
                       <div class="documentos-list__info">
-                        <a [href]="doc.url" target="_blank" rel="noopener" class="documentos-list__link">
+                        <button type="button" class="documentos-list__link" (click)="verDocumento(doc)">
                           <mt-icon name="visibility" [size]="14" /> {{ labelDocumento(doc.rol, doc.tipo) }}
-                        </a>
+                        </button>
                         <mt-badge [variant]="estadoDocumentoBadgeVariant[doc.estado]">{{ estadoDocumentoLabel[doc.estado] }}</mt-badge>
                       </div>
                       @if (doc.observaciones) {

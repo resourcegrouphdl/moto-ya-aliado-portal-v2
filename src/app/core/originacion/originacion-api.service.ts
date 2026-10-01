@@ -163,9 +163,38 @@ export class OriginacionApiService {
 
   registrarDocumento(
     solicitudId: string,
-    datos: { rol: RolPersonaSolicitud; tipo: TipoDocumentoSolicitud; url: string }
+    datos: { rol: RolPersonaSolicitud; tipo: TipoDocumentoSolicitud; url?: string; documentoId?: string }
   ): Observable<DocumentoSolicitudResponse> {
     return this.http.post<DocumentoSolicitudResponse>(`${this.base}/solicitudes/${solicitudId}/documentos`, datos);
+  }
+
+  // Document Management por motoya-api (DEC-130): el gateway no deja al pool `tienda` llamar a /api/operaciones, así que el aliado pide la URL de
+  // subida, registra lo subido y lee a través de motoya-api, que comprueba que la solicitud sea suya y habla con Document Management.
+
+  /** La URL firmada para subir directo al bucket de Document Management; el binario no pasa por motoya-api. */
+  solicitarSubidaDocumentoDm(
+    solicitudId: string,
+    tipo: TipoDocumentoSolicitud,
+    nombreArchivo: string,
+    contentType: string
+  ): Observable<{ uploadUrl: string; gcsUri: string; contentType: string }> {
+    return this.http.post<{ uploadUrl: string; gcsUri: string; contentType: string }>(
+      `${this.base}/solicitudes/${solicitudId}/documentos/dm/solicitar-subida`,
+      { tipo, nombreArchivo, contentType }
+    );
+  }
+
+  /** Registra en Document Management el archivo ya subido (dueño y solicitud los resuelve el servidor) y devuelve el `documentoId`. */
+  registrarSubidoDm(
+    solicitudId: string,
+    datos: { rol: RolPersonaSolicitud; tipo: TipoDocumentoSolicitud; gcsUri: string; etiqueta?: string }
+  ): Observable<{ documentoId: string }> {
+    return this.http.post<{ documentoId: string }>(`${this.base}/solicitudes/${solicitudId}/documentos/dm/registrar-subido`, datos);
+  }
+
+  /** El enlace temporal para ver un documento de la solicitud (`id` es el de la fila del documento, no el de Document Management). */
+  urlLecturaDocumento(solicitudId: string, id: string): Observable<{ url: string }> {
+    return this.http.get<{ url: string }>(`${this.base}/solicitudes/${solicitudId}/documentos/${id}/url`);
   }
 
   listarDocumentos(solicitudId: string): Observable<DocumentoSolicitudResponse[]> {
@@ -175,6 +204,13 @@ export class OriginacionApiService {
   /** Solo para documentos RECHAZADO/OBSERVADO — sube uno nuevo con solicitarSubidaDocumento()+subirArchivoDocumento() y confirma acá. Vuelve a PENDIENTE. */
   reemplazarDocumento(solicitudId: string, documentoId: string, url: string): Observable<DocumentoSolicitudResponse> {
     return this.http.put<DocumentoSolicitudResponse>(`${this.base}/solicitudes/${solicitudId}/documentos/${documentoId}/reemplazar`, { url });
+  }
+
+  /** Lo mismo con el archivo nuevo ya registrado en Document Management (DEC-130): se manda su id y el servidor comprueba que sea de esta solicitud. */
+  reemplazarDocumentoPorDm(solicitudId: string, documentoId: string, nuevoDocumentoId: string): Observable<DocumentoSolicitudResponse> {
+    return this.http.put<DocumentoSolicitudResponse>(`${this.base}/solicitudes/${solicitudId}/documentos/${documentoId}/reemplazar`, {
+      documentoId: nuevoDocumentoId
+    });
   }
 
   // ── Verificación de domicilio (etapa 5 de originación, DEC-030) ──────────

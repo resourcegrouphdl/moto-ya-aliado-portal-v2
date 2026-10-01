@@ -18,6 +18,7 @@
       [disabled]="disabled()"
       [value]="value()"
       [attr.autocomplete]="autocomplete() ?? null"
+      [attr.inputmode]="inputmode() ?? null"
       (input)="onInput($event)"
       (focus)="onFocus()"
       (blur)="onBlur()"

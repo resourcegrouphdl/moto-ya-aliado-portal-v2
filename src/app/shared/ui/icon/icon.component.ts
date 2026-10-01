@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, HostBinding, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostBinding, computed, input } from '@angular/core';
 
 /**
  * Wrapper de Material Symbols Rounded — un solo punto de verdad para el
@@ -11,7 +11,9 @@ import { ChangeDetectionStrategy, Component, HostBinding, input } from '@angular
 @Component({
   selector: 'mt-icon',
   standalone: true,
-  template: `<span class="material-symbols-rounded" aria-hidden="true">{{ name() }}</span>`,
+  // El tamaño va en línea sobre el glifo: la hoja de Material Symbols fija 24 px en .material-symbols-rounded y, con la caja de
+  // `size` px y overflow hidden, un ícono de 16 o 18 px salía recortado.
+  template: `<span class="material-symbols-rounded" aria-hidden="true" [style.font-size.px]="size()" [style.--icon-opsz]="opticalSize()">{{ name() }}</span>`,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class IconComponent {
@@ -19,6 +21,9 @@ export class IconComponent {
   size = input<number>(20);
   filled = input<boolean>(false);
   weight = input<number>(400);
+
+  /** Tamaño óptico de la fuente (20–48): el trazo se ajusta al tamaño real, no a 24 para todos. */
+  protected opticalSize = computed(() => Math.min(48, Math.max(20, this.size())));
   color = input<string>();
 
   @HostBinding('style.width.px') get widthPx() {

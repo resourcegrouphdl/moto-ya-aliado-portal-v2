@@ -14,12 +14,12 @@ $color-success: #10b981;
 $color-warning: #f59e0b;
 $color-error: #ef4444;
 
-$color-bg: #f3f6fb;
+$color-bg: #e8edf5; // más oscuro que antes (#f3f6fb): la tarjeta blanca se separa del fondo
 $color-surface: #ffffff;
 $color-sidebar: #0f172a;
 $color-text: #0f172a;
-$color-text-muted: #64748b;
-$color-border: #e1e7f0;
+$color-text-muted: #475569; // 7,6:1 sobre blanco (antes 4,8:1; sobre el fondo no llegaba a 4,5:1)
+$color-border: #cbd5e3; // divisores y contornos de bloques: visibles, no gritan
 
 :root {
   // Marca
@@ -55,15 +55,17 @@ $color-border: #e1e7f0;
   // Bordes
   --color-border: #{$color-border};
   --color-border-strong: #{color.adjust($color-border, $lightness: -12%)};
+  // Contorno de los campos de formulario: ≥ 3:1 sobre blanco (WCAG 1.4.11); el borde suave de arriba no alcanzaba (1,2:1).
+  --color-field-border: #7d8ca3;
 
   // Sombras (multicapa, Jakub §3 — se adaptan a cualquier fondo, no compiten con bordes gruesos)
   --shadow-xs:
     0px 0px 0px 1px rgba(15, 23, 42, 0.04),
     0px 1px 2px 0px rgba(15, 23, 42, 0.04);
   --shadow-sm:
-    0px 0px 0px 1px rgba(15, 23, 42, 0.06),
-    0px 1px 2px -1px rgba(15, 23, 42, 0.06),
-    0px 2px 4px 0px rgba(15, 23, 42, 0.04);
+    0px 0px 0px 1px rgba(15, 23, 42, 0.12),
+    0px 1px 2px -1px rgba(15, 23, 42, 0.08),
+    0px 2px 4px 0px rgba(15, 23, 42, 0.05);
   --shadow-md:
     0px 0px 0px 1px rgba(15, 23, 42, 0.06),
     0px 4px 8px -2px rgba(15, 23, 42, 0.08),

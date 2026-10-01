@@ -31,108 +31,6 @@
 }
 
 // ---------------------------------------------------------------------------
-// Stepper
-// ---------------------------------------------------------------------------
-.stepper {
-  display: flex;
-  align-items: flex-start;
-  list-style: none;
-  margin: 0 0 var(--space-8);
-  padding: 0;
-
-  // 7 pasos en ~49px de columna cada uno no caben (ver .stepper__step abajo)
-  // — bajo 640px el stepper completo se vuelve scrolleable horizontalmente en
-  // vez de exprimir cada paso hasta que las etiquetas se desborden.
-  @media (max-width: 640px) {
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding-bottom: var(--space-2);
-    -webkit-overflow-scrolling: touch;
-  }
-}
-
-.stepper__step {
-  position: relative;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-
-  &--clickable {
-    cursor: pointer;
-  }
-
-  @media (max-width: 640px) {
-    flex: 0 0 auto;
-    width: 84px;
-  }
-}
-
-.stepper__dot {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-full);
-  background: var(--color-surface);
-  border: 1.5px solid var(--color-border-strong);
-  color: var(--color-text-muted);
-  z-index: 1;
-  transition:
-    background var(--duration-fast) var(--ease-out-soft),
-    border-color var(--duration-fast) var(--ease-out-soft),
-    color var(--duration-fast) var(--ease-out-soft);
-}
-
-.stepper__label {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--color-text-muted);
-  text-align: center;
-  // Salvaguarda: una etiqueta de una sola palabra más ancha que su columna
-  // (p.ej. "Referencias") rompe aquí en vez de desbordarse sobre el paso vecino.
-  overflow-wrap: anywhere;
-}
-
-.stepper__line {
-  position: absolute;
-  top: 18px;
-  left: calc(50% + 24px);
-  right: calc(-50% + 24px);
-  height: 1.5px;
-  background: var(--color-border-strong);
-  z-index: 0;
-}
-
-.stepper__step--active {
-  .stepper__dot {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: var(--color-text-inverse);
-  }
-  .stepper__label {
-    color: var(--color-text);
-  }
-}
-
-.stepper__step--done {
-  .stepper__dot {
-    background: var(--color-primary-subtle);
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-  }
-  .stepper__line {
-    background: var(--color-primary);
-  }
-  .stepper__label {
-    color: var(--color-text);
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Contenido de cada paso
 // ---------------------------------------------------------------------------
 .step-header {
@@ -156,9 +54,7 @@
   gap: var(--space-5) var(--space-4);
 }
 
-// Separa visualmente los bloques OCR / formulario / mapa dentro del mismo
-// paso — el paso "Datos del titular/aval" junta los 3 en una sola tarjeta,
-// esto evita que compitan todos al mismo nivel de jerarquía.
+// Separa los bloques OCR / formulario / mapa de un mismo paso.
 .form-section-title {
   display: flex;
   align-items: center;
@@ -204,8 +100,7 @@
   color: var(--color-text-muted);
 }
 
-/* Un fallo del catálogo se ve distinto de «no hay motos» (auditoría 2026-09-26): tinta de peligro
-   sobre el token de estado, no el gris de un texto informativo. */
+/* Un fallo del catálogo se ve distinto de «no hay motos» (auditoría 2026-09-26). */
 .catalogo-interno__hint--error {
   color: var(--st-danger-ink);
 }
@@ -223,7 +118,6 @@
   }
 }
 
-/* El modelo de la moto elegida: contexto para el vendedor, no un dato que tenga que copiar. */
 .catalogo-interno__modelo {
   color: var(--color-text-muted);
 }
@@ -244,6 +138,10 @@
 @media (max-width: 640px) {
   .form-grid > * {
     grid-column: span 12 !important;
+  }
+  .form-grid > .span-3,
+  .form-grid > .m-6 {
+    grid-column: span 6 !important;
   }
 }
 
@@ -272,6 +170,27 @@
 .step-actions__group {
   display: flex;
   gap: var(--space-3);
+}
+
+@media (max-width: 640px) {
+  .step-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: var(--space-2);
+    margin: var(--space-6) calc(var(--space-6) * -1) calc(var(--space-6) * -1);
+    padding: var(--space-3) var(--space-6) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+    background: var(--color-surface);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    box-shadow: 0 -10px 16px -14px rgb(15 23 42 / 0.35);
+  }
+
+  .step-actions__hint {
+    text-align: center;
+    font-size: var(--text-xs);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -376,6 +295,10 @@
   &--action {
     margin-top: var(--space-5);
   }
+
+  @media (pointer: coarse) {
+    min-height: var(--tap-min);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -396,6 +319,7 @@
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   background: var(--color-bg);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 }
 
@@ -446,6 +370,7 @@
 .review-block {
   padding: var(--space-5);
   background: var(--color-bg);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 
   h3 {
@@ -475,6 +400,11 @@
     color: var(--color-text-muted) !important;
     font-style: italic;
   }
+
+  &__mono {
+    font-family: var(--font-mono);
+    overflow-wrap: anywhere;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -502,6 +432,24 @@
   background: var(--color-success-bg);
   color: var(--color-success);
   margin-bottom: var(--space-6);
+}
+
+.success-screen__acciones {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.success-screen__enlace {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
 }
 
 .success-screen h2 {

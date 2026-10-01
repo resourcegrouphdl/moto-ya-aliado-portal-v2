@@ -14,29 +14,7 @@
   } @else {
 
   @if (paso() !== 'completado') {
-    <ol class="stepper" aria-label="Progreso de la solicitud">
-      @for (item of pasos; track item.id; let i = $index) {
-        <li
-          class="stepper__step"
-          [class.stepper__step--active]="i === pasoIndex()"
-          [class.stepper__step--done]="i < pasoIndex()"
-          [class.stepper__step--clickable]="i < pasoIndex()"
-          (click)="irAPaso(item.id)"
-        >
-          <span class="stepper__dot">
-            @if (i < pasoIndex()) {
-              <mt-icon name="check" [size]="16" />
-            } @else {
-              <mt-icon [name]="item.icono" [size]="16" />
-            }
-          </span>
-          <span class="stepper__label">{{ item.etiqueta }}</span>
-          @if (i < pasos.length - 1) {
-            <span class="stepper__line"></span>
-          }
-        </li>
-      }
-    </ol>
+    <mt-wizard-stepper [pasos]="pasos" [indice]="pasoIndex()" (irA)="irAPaso($event)" />
   }
 
   @if (error()) {
@@ -72,6 +50,7 @@
           class="span-8"
           label="Número de documento"
           formControlName="numeroDocumento"
+          inputmode="numeric"
           icon="badge"
           [loading]="buscandoDniTitular()"
           [errorMessage]="errorDniTitular()"
@@ -101,7 +80,7 @@
 
         <mt-date-input
           class="span-3"
-          label="Fecha de nacimiento"
+          label="Nacimiento"
           formControlName="fechaNacimiento"
           [errorMessage]="formTitular.controls.fechaNacimiento.touched && formTitular.controls.fechaNacimiento.invalid
             ? 'La fecha de nacimiento es obligatoria (se usa para calcular la edad)'
@@ -163,9 +142,14 @@
             Paso {{ pasoIndex() + 1 }} de {{ pasos.length }}
           }
         </span>
-        <mt-button (click)="continuarTitular()" [loading]="guardando()" [disabled]="zonaBloqueaAvanceTitular()"
+        <div class="step-actions__group">
+          @if (pasoIndex() > 0) {
+            <mt-button variant="ghost" (click)="atras()">Atrás</mt-button>
+          }
+          <mt-button class="mt-button--fill-movil" (click)="continuarTitular()" [loading]="guardando()" [disabled]="zonaBloqueaAvanceTitular()"
           >Continuar</mt-button
         >
+        </div>
       </div>
     </mt-card>
   }
@@ -193,7 +177,12 @@
 
       <div card-footer class="step-actions">
         <span class="step-actions__hint">Paso {{ pasoIndex() + 1 }} de {{ pasos.length }}</span>
-        <mt-button (click)="continuarDocumentosTitular()">Continuar</mt-button>
+        <div class="step-actions__group">
+          @if (pasoIndex() > 0) {
+            <mt-button variant="ghost" (click)="atras()">Atrás</mt-button>
+          }
+          <mt-button class="mt-button--fill-movil" (click)="continuarDocumentosTitular()">Continuar</mt-button>
+        </div>
       </div>
     </mt-card>
   }
@@ -247,6 +236,7 @@
           class="span-8"
           label="Número de documento"
           formControlName="numeroDocumento"
+          inputmode="numeric"
           icon="badge"
           [loading]="buscandoDniAvalista()"
           [errorMessage]="errorDniAvalista()"
@@ -273,7 +263,7 @@
 
         <mt-date-input
           class="span-3"
-          label="Fecha de nacimiento"
+          label="Nacimiento"
           formControlName="fechaNacimiento"
           [errorMessage]="formAvalista.controls.fechaNacimiento.touched && formAvalista.controls.fechaNacimiento.invalid
             ? 'La fecha de nacimiento es obligatoria (se usa para calcular la edad)'
@@ -328,7 +318,12 @@
 
       <div card-footer class="step-actions">
         <span class="step-actions__hint">Paso {{ pasoIndex() + 1 }} de {{ pasos.length }}</span>
-        <mt-button (click)="continuarAvalista()" [loading]="guardando()" [disabled]="zonaBloqueaAvanceAvalista()">Continuar</mt-button>
+        <div class="step-actions__group">
+          @if (pasoIndex() > 0) {
+            <mt-button variant="ghost" (click)="atras()">Atrás</mt-button>
+          }
+          <mt-button class="mt-button--fill-movil" (click)="continuarAvalista()" [loading]="guardando()" [disabled]="zonaBloqueaAvanceAvalista()">Continuar</mt-button>
+        </div>
       </div>
     </mt-card>
   }
@@ -356,7 +351,12 @@
 
       <div card-footer class="step-actions">
         <span class="step-actions__hint">Paso {{ pasoIndex() + 1 }} de {{ pasos.length }}</span>
-        <mt-button (click)="continuarDocumentosAvalista()">Continuar</mt-button>
+        <div class="step-actions__group">
+          @if (pasoIndex() > 0) {
+            <mt-button variant="ghost" (click)="atras()">Atrás</mt-button>
+          }
+          <mt-button class="mt-button--fill-movil" (click)="continuarDocumentosAvalista()">Continuar</mt-button>
+        </div>
       </div>
     </mt-card>
   }
@@ -417,8 +417,8 @@
         <mt-input class="span-6" label="Marca" formControlName="marca" icon="two_wheeler" />
         <mt-input class="span-6" label="Modelo" formControlName="modelo" />
 
-        <mt-input class="span-4" label="Año" formControlName="anio" type="number" />
-        <mt-input class="span-4" label="Color" formControlName="color" />
+        <mt-input class="span-4 m-6" label="Año" formControlName="anio" type="number" />
+        <mt-input class="span-4 m-6" label="Color" formControlName="color" />
         <mt-input class="span-4" label="Placa (si tiene)" formControlName="placa" />
 
         <mt-input class="span-6" label="N° de motor" formControlName="numeroMotor" />
@@ -426,15 +426,20 @@
 
         <mt-input class="span-12" label="Precio de la moto (S/)" formControlName="precioVehiculo" type="number" icon="payments" />
 
-        <mt-input class="span-6" label="Inicial disponible (S/)" formControlName="inicialIngresada" type="number" icon="savings" />
-        <mt-input class="span-6" label="Cuotas deseadas" formControlName="numeroPeriodos" type="number" />
+        <mt-input class="span-6 m-6" label="Inicial (S/)" formControlName="inicialIngresada" type="number" icon="savings" />
+        <mt-input class="span-6 m-6" label="Cuotas deseadas" formControlName="numeroPeriodos" type="number" />
         <mt-select class="span-12" label="SOAT" formControlName="incluyeSoat" [options]="soatOptions" />
         <p class="span-12 form-hint">Inicial y cuotas son lo que pide el cliente — referencial, riesgo define el financiamiento final al evaluar. El SOAT sí es vinculante: se incluye o no en la cotización real.</p>
       </form>
 
       <div card-footer class="step-actions">
         <span class="step-actions__hint">Paso {{ pasoIndex() + 1 }} de {{ pasos.length }}</span>
-        <mt-button (click)="continuarVehiculo()" [loading]="guardando()">Continuar</mt-button>
+        <div class="step-actions__group">
+          @if (pasoIndex() > 0) {
+            <mt-button variant="ghost" (click)="atras()">Atrás</mt-button>
+          }
+          <mt-button class="mt-button--fill-movil" (click)="continuarVehiculo()" [loading]="guardando()">Continuar</mt-button>
+        </div>
       </div>
     </mt-card>
   }
@@ -444,7 +449,7 @@
     <mt-card>
       <div card-header class="step-header">
         <h2>Referencias personales</h2>
-        <p>Al menos una referencia, hasta un máximo de tres.</p>
+        <p>Mínimo dos referencias, máximo tres.</p>
       </div>
 
       @if (referencias().length > 0) {
@@ -477,10 +482,15 @@
       }
 
       <div card-footer class="step-actions">
-        <span class="step-actions__hint">{{ referencias().length }} de 3 referencias (mínimo 2)</span>
-        <mt-button (click)="continuarReferencias()" [disabled]="!puedeContinuarReferencias()" [loading]="guardando()">
+        <span class="step-actions__hint">{{ referencias().length }} de 3 referencias · mínimo 2</span>
+        <div class="step-actions__group">
+          @if (pasoIndex() > 0) {
+            <mt-button variant="ghost" (click)="atras()">Atrás</mt-button>
+          }
+          <mt-button class="mt-button--fill-movil" (click)="continuarReferencias()" [disabled]="!puedeContinuarReferencias()" [loading]="guardando()">
           Continuar
         </mt-button>
+        </div>
       </div>
     </mt-card>
   }
@@ -519,7 +529,13 @@
         <section class="review-block">
           <h3><mt-icon name="two_wheeler" [size]="18" /> Moto</h3>
           <p>{{ vehiculo()?.marca }} {{ vehiculo()?.modelo }} · {{ vehiculo()?.anio }}</p>
-          <p class="review-block__meta">S/ {{ vehiculo()?.precioVehiculo }}</p>
+          <p class="review-block__meta">
+            @if (vehiculo()?.color) { {{ vehiculo()?.color }} · }
+            S/ {{ vehiculo()?.precioVehiculo }}
+          </p>
+          @if (vehiculo()?.numeroChasis) {
+            <p class="review-block__meta review-block__mono">Chasis {{ vehiculo()?.numeroChasis }}</p>
+          }
           @if (vehiculo()?.inicialIngresada || vehiculo()?.numeroPeriodos) {
             <p class="review-block__meta">
               Pide: @if (vehiculo()?.inicialIngresada) { S/ {{ vehiculo()?.inicialIngresada }} de inicial }
@@ -539,14 +555,19 @@
 
       @if (correoTitularPendienteDeVerificar()) {
         <mt-alert variant="warning" title="Correo del titular sin verificar" class="wizard-alert">
-          El cliente todavía no confirmó el código. Vuelve al paso <strong>Titular</strong> y escribí el código que te
+          El cliente todavía no confirmó el código. Vuelve al paso <strong>Titular</strong> y escribe el código que te
           pase: si ya se le envió uno, sigue vigente y no hace falta pedir otro.
         </mt-alert>
       }
 
       <div card-footer class="step-actions">
         <span class="step-actions__hint">Código: {{ solicitud()?.codigoSolicitud }}</span>
-        <mt-button (click)="finalizar()" [disabled]="correoTitularPendienteDeVerificar()">Confirmar y enviar</mt-button>
+        <div class="step-actions__group">
+          @if (pasoIndex() > 0) {
+            <mt-button variant="ghost" (click)="atras()">Atrás</mt-button>
+          }
+          <mt-button class="mt-button--fill-movil" (click)="finalizar()" [disabled]="correoTitularPendienteDeVerificar()">Confirmar y enviar</mt-button>
+        </div>
       </div>
     </mt-card>
   }
@@ -562,10 +583,13 @@
         El código <strong>{{ solicitud()?.codigoSolicitud }}</strong> ya está listo para que un asesor la evalúe.
         Te avisaremos en cuanto haya una decisión.
       </p>
-      <button type="button" class="link-button link-button--action" (click)="nuevaSolicitud()">
-        <mt-icon name="add" [size]="18" />
-        Registrar otra solicitud
-      </button>
+      <div class="success-screen__acciones">
+        <mt-button variant="secondary" (click)="nuevaSolicitud()">
+          <mt-icon name="add" [size]="18" />
+          Registrar otra solicitud
+        </mt-button>
+        <a class="success-screen__enlace" routerLink="/ejecutivo/clientes">Ver mis clientes</a>
+      </div>
     </div>
   }
 

@@ -8,6 +8,8 @@ import { IconComponent } from '../icon/icon.component';
 export interface DocumentoIdentidadExtraido {
   datos: DatosDocumentoIdentidadExtraidos;
   publicUrl: string;
+  /** El archivo que se subió: el documento del expediente se registra por Document Management con ese mismo archivo (DEC-130). */
+  archivo: File;
 }
 
 /**
@@ -83,7 +85,7 @@ export class DocumentoIdentidadUploadComponent {
                     datos.detalleProblemaCalidad ?? 'La verificación automática detectó una posible falla de calidad — revisa los datos.'
                   );
                 }
-                this.extraido.emit({ datos, publicUrl: solicitud.publicUrl });
+                this.extraido.emit({ datos, publicUrl: solicitud.publicUrl, archivo });
               },
               error: () => {
                 this.extrayendo.set(false);

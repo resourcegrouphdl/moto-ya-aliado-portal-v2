@@ -13,7 +13,15 @@ export type TipoDocumentoDm =
   | 'PLACA'
   | 'ACTA_ENTREGA'
   | 'SOAT'
-  | 'TIVE';
+  | 'TIVE'
+  // DEC-130 (2026-10-01): los documentos de la solicitud de crédito.
+  | 'DNI'
+  | 'LICENCIA_CONDUCIR'
+  | 'SELFIE'
+  | 'CERTIFICADO_LABORAL'
+  | 'RECIBO_SERVICIO'
+  | 'FACHADA_DOMICILIO'
+  | 'OTRO_SOLICITUD';
 
 export interface SubirDocumentoRequest {
   tipo: TipoDocumentoDm;

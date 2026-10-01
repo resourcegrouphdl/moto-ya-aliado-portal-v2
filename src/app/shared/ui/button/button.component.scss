@@ -4,6 +4,17 @@
   display: inline-flex;
 }
 
+// Modificador de uso: en celular el botón ocupa todo el ancho de su contenedor (la acción principal del pie de un paso).
+:host(.mt-button--fill-movil) {
+  @media (max-width: 640px) {
+    flex: 1;
+
+    .mt-button {
+      width: 100%;
+    }
+  }
+}
+
 .mt-button {
   position: relative;
   display: inline-flex;
