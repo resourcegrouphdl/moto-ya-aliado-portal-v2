@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { catchError, forkJoin, of } from 'rxjs';
+import { catchError, combineLatest, debounceTime, forkJoin, map, of, startWith, switchMap } from 'rxjs';
 
 import { AlertComponent } from '../../../../shared/ui/alert/alert.component';
 import { BadgeComponent } from '../../../../shared/ui/badge/badge.component';
@@ -107,19 +107,49 @@ export class CalculadoraComponent {
   private readonly precioVehiculo = toSignal(this.form.controls.precioVehiculo.valueChanges, { initialValue: 0 });
   private readonly inicialIngresada = toSignal(this.form.controls.inicialIngresada.valueChanges, { initialValue: 0 });
 
-  /** Inicial mínima estimada para el precio que el vendedor ya escribió — puramente informativo, el backend recalcula el valor real al cotizar. */
-  protected readonly inicialMinimaEstimada = computed(() => {
-    const info = this.productoInfo();
-    const precio = Number(this.precioVehiculo());
-    return info && precio > 0 ? precio * info.porcentajeInicialMinima : null;
-  });
+  private readonly incluirSoat = toSignal(this.form.controls.incluirSoat.valueChanges, { initialValue: false });
+
+  /**
+   * Inicial mínima REAL: la que devuelve el cotizador sin inicial ingresada. No es precio × % — desde cierto
+   * precio el monto a financiar topa en `montoMaxFinanciar` y la inicial sube (y el SOAT la sube más). Inicial no
+   * depende del plazo; se cotiza con uno cualquiera del rango solo para obtenerla.
+   */
+  private readonly inicialReal = toSignal(
+    combineLatest([
+      this.form.controls.precioVehiculo.valueChanges.pipe(startWith(this.form.controls.precioVehiculo.value)),
+      this.form.controls.incluirSoat.valueChanges.pipe(startWith(this.form.controls.incluirSoat.value))
+    ]).pipe(
+      debounceTime(400),
+      switchMap(([precio, soat]) =>
+        Number(precio) > 0
+          ? this.api
+              .cotizar({
+                codigoProducto: CODIGO_PRODUCTO_CREDITO_DEFAULT,
+                precioVehiculo: Number(precio),
+                inicialIngresada: null,
+                incluirSoat: soat,
+                numeroPeriodos: 40,
+                fechaDesembolso: null
+              })
+              .pipe(
+                map((r) => r.inicialAplicada),
+                catchError(() => of(null))
+              )
+          : of(null)
+      )
+    ),
+    { initialValue: null as number | null }
+  );
+
+  protected readonly inicialMinimaEstimada = computed(() => this.inicialReal());
 
   protected readonly hintPrecio = computed(() => {
     const info = this.productoInfo();
     if (!info) return undefined;
     const min = this.inicialMinimaEstimada();
+    const precio = Number(this.precioVehiculo());
     return min != null
-      ? `Inicial mínima para esta moto: S/ ${min.toFixed(2)} (${(info.porcentajeInicialMinima * 100).toFixed(0)}%)`
+      ? `Inicial mínima${this.incluirSoat() ? ' con SOAT' : ''} para esta moto: S/ ${min.toFixed(2)} (${((min / precio) * 100).toFixed(0)}%)`
       : undefined;
   });
 
