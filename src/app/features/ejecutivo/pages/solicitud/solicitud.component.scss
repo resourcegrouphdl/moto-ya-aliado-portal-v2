@@ -200,6 +200,22 @@
   margin-bottom: var(--space-6);
 }
 
+.faltantes {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+}
+
 .historial-list {
   display: flex;
   flex-direction: column;
@@ -470,3 +486,9 @@
   }
 }
 
+
+.catalogo-interno__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { SolicitudDocumentosService } from '../../../../core/documentos/solicitud-documentos.service';
@@ -18,6 +19,7 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import {
   DOCUMENTOS_AVALISTA,
   DOCUMENTOS_TITULAR,
+  DevolucionSolicitudResponse,
   DocumentoSolicitudResponse,
   ESTADO_DOCUMENTO_SOLICITUD_BADGE_VARIANT,
   ESTADO_DOCUMENTO_SOLICITUD_LABEL,
@@ -28,7 +30,7 @@ import {
 
 const ESTADO_LABEL: Record<EstadoSolicitud, string> = {
   BORRADOR: 'Borrador',
-  INCOMPLETA: 'Incompleta',
+  INCOMPLETA: 'Sin enviar a evaluación',
   COMPLETA: 'Completa',
   EN_EVALUACION: 'En evaluación',
   CERRADA: 'Cerrada',
@@ -80,6 +82,7 @@ const RELACIONES: SelectOption<string>[] = [
   standalone: true,
   imports: [
     ReactiveFormsModule,
+    DatePipe,
     RouterLink,
     AlertComponent,
     BadgeComponent,
@@ -111,6 +114,12 @@ export class SolicitudDetailComponent {
     this.authService.rol() === 'ADMINISTRADOR_ALIADO' ? 'Volver a clientes de la tienda' : 'Volver a mis clientes'
   );
 
+  /** Una solicitud que nunca se envió a evaluación se retoma en el formulario, donde está el botón «Enviar a evaluación». */
+  protected readonly puedeContinuar = computed(
+    () => this.expediente()?.solicitud.estado === 'INCOMPLETA' && this.authService.rol() !== 'ADMINISTRADOR_ALIADO'
+  );
+  protected readonly continuarLink = computed(() => `/ejecutivo/solicitud/${this.solicitudId}/continuar`);
+
   protected readonly estadoLabel = ESTADO_LABEL;
   protected readonly estadoVariant = ESTADO_VARIANT;
   protected readonly estadoDocumentoLabel = ESTADO_DOCUMENTO_SOLICITUD_LABEL;
@@ -127,6 +136,13 @@ export class SolicitudDetailComponent {
   protected readonly documentos = signal<DocumentoSolicitudResponse[]>([]);
   protected readonly loadingDocumentos = signal(true);
   protected readonly reemplazandoDocumentoId = signal<string | null>(null);
+
+  /** Lo que el evaluador devolvió (de la más reciente a la más antigua); la abierta tiene la evaluación en pausa hasta que se marque corregida. */
+  protected readonly devoluciones = signal<DevolucionSolicitudResponse[]>([]);
+  protected readonly devolucionAbierta = computed(() => this.devoluciones().find((d) => d.abierta) ?? null);
+  protected readonly notaCorreccion = signal('');
+  protected readonly resolviendoDevolucion = signal(false);
+  protected readonly errorDevolucion = signal<string | null>(null);
 
   protected readonly cambiandoAval = signal(false);
   protected readonly guardandoAval = signal(false);
@@ -155,7 +171,30 @@ export class SolicitudDetailComponent {
 
   protected labelDocumento(rol: 'TITULAR' | 'AVALISTA', tipo: string): string {
     const catalogo = rol === 'TITULAR' ? this.documentosTitularCatalogo : this.documentosAvalCatalogo;
-    return catalogo.find((d) => d.tipo === tipo)?.label ?? tipo;
+    // SELFIE/FACHADA ya no se suben a mano (verificación por enlace con GPS), pero hay documentos históricos con esos tipos.
+    const historicos: Record<string, string> = { SELFIE: 'Selfie', FACHADA: 'Fachada de la vivienda' };
+    return catalogo.find((d) => d.tipo === tipo)?.label ?? historicos[tipo] ?? tipo;
+  }
+
+  private cargarDevoluciones(): void {
+    this.api.listarDevoluciones(this.solicitudId).subscribe({ next: (lista) => this.devoluciones.set(lista), error: () => this.devoluciones.set([]) });
+  }
+
+  /** El vendedor corrigió lo devuelto: se levanta la pausa y el evaluador retoma la evaluación. */
+  protected marcarCorregida(): void {
+    this.resolviendoDevolucion.set(true);
+    this.errorDevolucion.set(null);
+    this.api.resolverDevolucion(this.solicitudId, this.notaCorreccion()).subscribe({
+      next: () => {
+        this.resolviendoDevolucion.set(false);
+        this.notaCorreccion.set('');
+        this.cargarDevoluciones();
+      },
+      error: () => {
+        this.resolviendoDevolucion.set(false);
+        this.errorDevolucion.set('No se pudo marcar como corregida. Intenta de nuevo.');
+      }
+    });
   }
 
   private cargar(): void {
@@ -166,6 +205,7 @@ export class SolicitudDetailComponent {
         this.expediente.set(expediente);
         this.loading.set(false);
         this.cargarDocumentos();
+        this.cargarDevoluciones();
       },
       error: () => {
         this.loading.set(false);

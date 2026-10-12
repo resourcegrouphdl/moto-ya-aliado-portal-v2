@@ -12,7 +12,7 @@ import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-head
 
 const ESTADO_LABEL: Record<EstadoSolicitud, string> = {
   BORRADOR: 'Borrador',
-  INCOMPLETA: 'Incompleta',
+  INCOMPLETA: 'Sin enviar a evaluación',
   COMPLETA: 'Completa',
   EN_EVALUACION: 'En evaluación',
   CERRADA: 'Cerrada',

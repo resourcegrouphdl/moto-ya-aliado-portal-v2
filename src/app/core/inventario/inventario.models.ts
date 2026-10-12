@@ -102,3 +102,29 @@ export function situacionFisica(unidad: UnidadDisponible): string {
       return 'no entregable todavía';
   }
 }
+
+/**
+ * Pedido de unidad (DEC-152): la moto que el cliente pide y no está en el stock. El vendedor libre solo puede **crearlo**; gerencia lo gestiona
+ * desde Compras. `numero` es el que se dicen por teléfono («PU-0007»).
+ */
+export interface PedidoUnidadCreado {
+  id: string;
+  numero: number;
+  modeloId: string;
+  color: string;
+  estado: string;
+}
+
+export interface CrearPedidoUnidadRequest {
+  modeloId: string;
+  color: string;
+  solicitudId: string;
+  solicitudCodigo: string;
+  clienteNombre: string;
+  vendedorNombre: string;
+  nota?: string | null;
+}
+
+export function codigoDePedido(numero: number): string {
+  return `PU-${String(numero).padStart(4, '0')}`;
+}

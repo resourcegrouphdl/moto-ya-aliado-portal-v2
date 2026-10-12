@@ -27,7 +27,8 @@ import { ModalService } from '../../../../shared/ui/modal/modal.service';
 import { PreCalificacionAlertDialogComponent } from '../../../../shared/ui/modal/pre-calificacion-alert-dialog.component';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { InventarioApiService } from '../../../../core/inventario/inventario-api.service';
-import { ModeloCatalogo } from '../../../../core/inventario/inventario.models';
+import { ModeloCatalogo, PedidoUnidadCreado } from '../../../../core/inventario/inventario.models';
+import { PedirMotoDialogComponent, PedirMotoDialogData, PedirMotoResultado } from './pedir-moto-dialog.component';
 import {
   SeleccionStockDialogData,
   SeleccionStockResult,
@@ -51,6 +52,7 @@ import {
   HistorialSolicitudCliente,
   NACIONALIDAD_LABEL,
   Nacionalidad,
+  PedidoUnidadDeSolicitudResponse,
   ReferenciaResponse,
   SolicitudCreditoResponse,
   TipoDocumentoIdentidad,
@@ -111,6 +113,9 @@ const PASOS: { id: Paso; etiqueta: string; icono: string }[] = [
   { id: 'referencias', etiqueta: 'Referencias', icono: 'contacts' },
   { id: 'revision', etiqueta: 'Revisión', icono: 'fact_check' }
 ];
+
+/** Referencias que pide el evaluador: 2 como mínimo, 3 como máximo (decisión del usuario, 2026-10-12). */
+const MINIMO_REFERENCIAS = 2;
 
 const TIPOS_DOCUMENTO: SelectOption<TipoDocumentoIdentidad>[] = [
   { label: 'DNI', value: 'DNI' },
@@ -430,6 +435,14 @@ export class SolicitudComponent {
    * reserva no se puede aplicar, queda la incidencia y el vendedor la ve en la solicitud (DEC-073).
    */
   protected readonly esVentaInterna = computed(() => this.authService.rol() === 'VENDEDOR_LIBRE');
+  /**
+   * Moto «por pedir» (DEC-152): el modelo que el cliente quiere no está en el stock. `pedidoPorPedir` es la intención (se pide al guardar el paso,
+   * así un diálogo descartado no deja pedidos sueltos) y `pedidoVinculado` el pedido ya registrado con esta solicitud.
+   */
+  protected readonly pedidoPorPedir = signal<PedirMotoResultado | null>(null);
+  protected readonly pedidoVinculado = signal<PedidoUnidadDeSolicitudResponse | null>(null);
+  /** Creado en operaciones pero sin vincular todavía: un reintento no vuelve a crearlo (no hay dos pedidos vivos por solicitud). */
+  private pedidoCreado: PedidoUnidadCreado | null = null;
   protected readonly modelosCatalogo = signal<ModeloCatalogo[]>([]);
   protected readonly modeloCatalogoId = signal<string | null>(null);
   protected readonly vinElegidoDelCatalogo = signal<string | null>(null);
@@ -483,6 +496,7 @@ export class SolicitudComponent {
    * guardar, DEC-061) es de ESTE VIN. */
   private aplicarSeleccionDeStock({ unidad, modelo }: SeleccionStockResult): void {
     this.modeloCatalogoId.set(modelo.id);
+    this.pedidoPorPedir.set(null);
     this.vinElegidoDelCatalogo.set(unidad.vin);
     this.formVehiculo.patchValue({
       marca: modelo.marca,
@@ -490,6 +504,83 @@ export class SolicitudComponent {
       anio: unidad.anioModelo ?? this.formVehiculo.controls.anio.value,
       numeroChasis: unidad.vin
     });
+  }
+
+  protected abrirPedirMoto(): void {
+    this.modalService
+      .open<PedirMotoDialogComponent, PedirMotoResultado | null, PedirMotoDialogData>(PedirMotoDialogComponent, {
+        data: { modelos: this.modelosCatalogo(), modeloId: this.modeloCatalogoId() }
+      })
+      .closed.subscribe((pedido) => {
+        if (!pedido) return;
+        const modelo = this.modelosCatalogo().find((m) => m.id === pedido.modeloId);
+        if (!modelo) return;
+        this.pedidoPorPedir.set(pedido);
+        // Sin unidad: no hay VIN ni reserva. Marca, modelo y color salen del pedido; el precio, del catálogo si el vendedor aún no puso uno.
+        this.modeloCatalogoId.set(modelo.id);
+        this.vinElegidoDelCatalogo.set(null);
+        this.formVehiculo.patchValue({
+          marca: modelo.marca,
+          modelo: modelo.modelo,
+          color: pedido.color,
+          numeroChasis: '',
+          ...(this.formVehiculo.controls.precioVehiculo.value > 0 || !(modelo.precioCatalogo > 0) ? {} : { precioVehiculo: modelo.precioCatalogo })
+        });
+      });
+  }
+
+  protected quitarPedidoPorPedir(): void {
+    this.pedidoPorPedir.set(null);
+  }
+
+  /** Nombre del modelo de la moto por pedir, para el resumen. */
+  protected nombreModeloPorPedir(modeloId: string): string {
+    const m = this.modelosCatalogo().find((x) => x.id === modeloId);
+    return m ? `${m.marca} ${m.modelo}` : 'Modelo pedido';
+  }
+
+  protected codigoDePedido(numero: number): string {
+    return `PU-${String(numero).padStart(4, '0')}`;
+  }
+
+  /**
+   * Crea el pedido en operaciones y lo vincula a la solicitud (motoya-api). Si algo falla, el vehículo ya quedó guardado: el reintento solo repite
+   * lo que falta (un pedido ya creado no se vuelve a crear).
+   */
+  private registrarPedidoPorPedir(solicitud: SolicitudCreditoResponse, intencion: PedirMotoResultado, avanzar: () => void): void {
+    const titular = this.titular();
+    const crear$ = this.pedidoCreado
+      ? of(this.pedidoCreado)
+      : this.inventarioApi.crearPedidoUnidad({
+          modeloId: intencion.modeloId,
+          color: intencion.color,
+          solicitudId: solicitud.id,
+          solicitudCodigo: solicitud.codigoSolicitud,
+          clienteNombre: titular ? `${titular.nombres} ${titular.apellidoPaterno}`.trim() : '',
+          vendedorNombre: this.authService.displayName(),
+          nota: intencion.nota
+        });
+    crear$
+      .pipe(
+        tap((pedido) => (this.pedidoCreado = pedido)),
+        switchMap((pedido) =>
+          this.api.vincularPedidoUnidad(solicitud.id, {
+            pedidoUnidadId: pedido.id,
+            numeroPedido: pedido.numero,
+            modeloId: pedido.modeloId,
+            color: pedido.color
+          })
+        )
+      )
+      .subscribe({
+        next: (vinculo) => {
+          this.pedidoVinculado.set(vinculo);
+          this.pedidoPorPedir.set(null);
+          this.pedidoCreado = null;
+          avanzar();
+        },
+        error: (err: HttpErrorResponse) => this.manejarError(err)
+      });
   }
 
   protected quitarSeleccionCatalogo(): void {
@@ -643,6 +734,7 @@ export class SolicitudComponent {
 
     if (vehiculo) {
       this.vehiculo.set(vehiculo);
+      this.api.consultarPedidoUnidad(solicitud.id).subscribe({ next: (v) => this.pedidoVinculado.set(v ?? null), error: () => this.pedidoVinculado.set(null) });
       this.formVehiculo.patchValue({
         marca: vehiculo.marca,
         modelo: vehiculo.modelo,
@@ -986,9 +1078,9 @@ export class SolicitudComponent {
         switchMap((cliente) =>
           // documentosMinimosCompletos siempre false acá: la solicitud se crea
           // ANTES de que exista cualquier documento (el paso documentos-titular
-          // es el siguiente). Nace INCOMPLETA y pasa a COMPLETA recién en
-          // evaluarDocumentosMinimosCompletos(), tras subir los documentos —
-          // ver MarcarSolicitudCompletaUseCase en motoya-api.
+          // es el siguiente). Nace INCOMPLETA y pasa a COMPLETA recién cuando el
+          // vendedor pulsa «Enviar a evaluación» (finalizar()) — ver
+          // MarcarSolicitudCompletaUseCase en motoya-api.
           this.api
             .crearSolicitud({ canal: 'TIENDA_ALIADA', titularId: cliente.id, documentosMinimosCompletos: false })
             .pipe(switchMap((solicitud) => of({ cliente, solicitud })))
@@ -1141,31 +1233,7 @@ export class SolicitudComponent {
   }
 
   continuarDocumentosAvalista(): void {
-    this.evaluarDocumentosMinimosCompletos();
     this.paso.set('vehiculo');
-  }
-
-  /**
-   * Los "documentos mínimos" (§9.2 del doc de arquitectura) son el DNI
-   * (frente+reverso) de titular y aval — el resto de slots (licencia,
-   * selfie, certificado laboral, recibo, fachada, otros) son complementarios,
-   * no bloquean. Si ambos DNI ya están, la solicitud pasa de INCOMPLETA a
-   * COMPLETA en el backend. Best-effort y no bloqueante: si falla, la
-   * solicitud simplemente se queda INCOMPLETA — sigue siendo más correcto
-   * que el `true` fijo que se mandaba antes de tener un solo documento.
-   */
-  private evaluarDocumentosMinimosCompletos(): void {
-    const solicitud = this.solicitud();
-    if (!solicitud) return;
-    if (!this.tieneDniCompleto(this.documentosTitular()) || !this.tieneDniCompleto(this.documentosAvalista())) {
-      return;
-    }
-    this.api.marcarSolicitudCompleta(solicitud.id).subscribe({
-      next: (actualizada) => this.solicitud.set(actualizada),
-      error: () => {
-        /* No bloquea el wizard — el evaluador puede completarla luego desde el panel interno. */
-      }
-    });
   }
 
   private tieneDniCompleto(documentos: DocumentoSolicitudResponse[]): boolean {
@@ -1202,8 +1270,16 @@ export class SolicitudComponent {
     request$.subscribe({
       next: (vehiculo) => {
         this.vehiculo.set(vehiculo);
-        this.guardando.set(false);
-        this.paso.set('referencias');
+        const intencion = this.pedidoPorPedir();
+        const avanzar = (): void => {
+          this.guardando.set(false);
+          this.paso.set('referencias');
+        };
+        if (intencion) {
+          this.registrarPedidoPorPedir(solicitud, intencion, avanzar);
+        } else {
+          avanzar();
+        }
       },
       error: (err: HttpErrorResponse) => this.manejarError(err)
     });
@@ -1248,7 +1324,25 @@ export class SolicitudComponent {
       );
       return;
     }
-    this.paso.set('completado');
+    const solicitud = this.solicitud();
+    if (!solicitud) return;
+    // Ya enviada (se reabrió para corregir algo): no hay nada que enviar de nuevo.
+    if (solicitud.estado !== 'INCOMPLETA') {
+      this.paso.set('completado');
+      return;
+    }
+    this.guardando.set(true);
+    this.error.set(null);
+    // El acto explícito del vendedor (2026-10-12): recién acá la solicitud pasa al evaluador y se avisa a aval y referencias. El servidor
+    // vuelve a comprobar que no falte nada y, si falta algo, responde con la lista.
+    this.api.marcarSolicitudCompleta(solicitud.id).subscribe({
+      next: (actualizada) => {
+        this.solicitud.set(actualizada);
+        this.guardando.set(false);
+        this.paso.set('completado');
+      },
+      error: (err: HttpErrorResponse) => this.manejarError(err)
+    });
   }
 
   nuevaSolicitud(): void {
@@ -1291,6 +1385,41 @@ export class SolicitudComponent {
       this.paso.set(this.pasos[i - 1].id);
     }
   }
+
+  /**
+   * Lo que todavía falta para que la solicitud pueda evaluarse, con el paso donde se completa. El wizard dejaba avanzar sin avisar nada
+   * (todo es «opcional» hasta que el evaluador lo echa de menos). Es un aviso: no bloquea; la regla dura va en el servidor.
+   */
+  protected readonly faltantes = computed<{ texto: string; paso: Paso }[]>(() => {
+    const faltan: { texto: string; paso: Paso }[] = [];
+    if (!this.tieneDniCompleto(this.documentosTitular())) {
+      faltan.push({ texto: 'DNI del titular (frente y reverso)', paso: 'documentos-titular' });
+    }
+    if (!this.avalista()) {
+      faltan.push({ texto: 'Aval', paso: 'avalista' });
+    } else if (!this.tieneDniCompleto(this.documentosAvalista())) {
+      faltan.push({ texto: 'DNI del aval (frente y reverso)', paso: 'documentos-avalista' });
+    }
+    if (!this.vehiculo()) {
+      faltan.push({ texto: 'Moto', paso: 'vehiculo' });
+    }
+    const referencias = this.referencias().length;
+    if (referencias < MINIMO_REFERENCIAS) {
+      faltan.push({ texto: `Referencias: ${referencias} de ${MINIMO_REFERENCIAS} mínimas`, paso: 'referencias' });
+    }
+    return faltan;
+  });
+
+  /** Datos de la moto que no son obligatorios pero que el evaluador y el contrato usan: se sugieren, no se exigen. */
+  protected readonly recomendados = computed<string[]>(() => {
+    const v = this.vehiculo();
+    if (!v) return [];
+    const sugeridos: string[] = [];
+    if (!v.color?.trim()) sugeridos.push('Color de la moto');
+    if (v.inicialIngresada == null) sugeridos.push('Inicial que el cliente puede dar');
+    if (v.numeroPeriodos == null) sugeridos.push('Número de cuotas que pide el cliente');
+    return sugeridos;
+  });
 
   irAPaso(destino: string): void {
     const destinoIndex = this.pasos.findIndex((p) => p.id === destino);

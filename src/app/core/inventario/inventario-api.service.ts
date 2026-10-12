@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, of, range } from 'rxjs';
 import { concatMap, reduce, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { ModeloCatalogo, UnidadDisponible } from './inventario.models';
+import { CrearPedidoUnidadRequest, ModeloCatalogo, PedidoUnidadCreado, UnidadDisponible } from './inventario.models';
 
 interface PaginaUnidadesVehiculares {
   contenido: UnidadDisponible[];
@@ -21,6 +21,11 @@ interface PaginaUnidadesVehiculares {
 export class InventarioApiService {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.gatewayBaseUrl}/api/operaciones`;
+
+  /** DEC-152: pide la moto que no está en el stock; gerencia la ve en Compras. Solo crear: el resto de la ruta es del pool admin. */
+  crearPedidoUnidad(datos: CrearPedidoUnidadRequest): Observable<PedidoUnidadCreado> {
+    return this.http.post<PedidoUnidadCreado>(`${this.base}/pedidos-unidad`, datos);
+  }
 
   listarModelos(): Observable<ModeloCatalogo[]> {
     return this.http.get<ModeloCatalogo[]>(`${this.base}/modelos`);

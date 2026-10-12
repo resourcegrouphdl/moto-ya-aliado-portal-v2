@@ -400,7 +400,6 @@ export const ESTADO_DOCUMENTO_SOLICITUD_BADGE_VARIANT: Record<EstadoDocumentoSol
   RECHAZADO: 'error'
 };
 
-/** Slots de documentos por rol — SELFIE solo aplica a TITULAR (el aval no la requiere). */
 /**
  * Slots de documentos que el wizard del vendedor ofrece para subir a mano. **Sin DNI**: la foto del DNI entra por el
  * flujo con OCR (`mt-documento-identidad-upload`), que además la registra como `DNI_FRENTE` — ofrecerla también acá
@@ -408,19 +407,44 @@ export const ESTADO_DOCUMENTO_SOLICITUD_BADGE_VARIANT: Record<EstadoDocumentoSol
  * en el catálogo: los usan los documentos ya subidos y el «reemplazar» del analista en admin-v2 (que sí conserva sus
  * slots, porque ahí no hay bloque de OCR y es la única vía para reemplazar un DNI observado).
  */
+/**
+ * **Sin selfie ni fachada** (decisión del usuario, 2026-10-12): la verificación de domicilio por enlace con GPS (DEC-030/033) las reemplaza, para
+ * titular y aval. Los tipos SELFIE y FACHADA siguen existiendo en el catálogo solo para los documentos ya subidos.
+ */
 export const DOCUMENTOS_TITULAR: { tipo: TipoDocumentoSolicitud; label: string }[] = [
   { tipo: 'LICENCIA_FRENTE', label: 'Licencia de conducir — frente' },
   { tipo: 'LICENCIA_REVERSO', label: 'Licencia de conducir — reverso' },
-  { tipo: 'SELFIE', label: 'Selfie' },
   { tipo: 'CERTIFICADO_LABORAL', label: 'Certificado laboral' },
   { tipo: 'RECIBO_SERVICIO', label: 'Recibo de servicio (domicilio)' },
-  { tipo: 'FACHADA', label: 'Fachada de la vivienda' },
   { tipo: 'OTRO_1', label: 'Otro documento (1)' },
   { tipo: 'OTRO_2', label: 'Otro documento (2)' }
 ];
 
-export const DOCUMENTOS_AVALISTA: { tipo: TipoDocumentoSolicitud; label: string }[] = DOCUMENTOS_TITULAR.filter(
-  // DEC-033: la selfie del aval la toma él mismo por el enlace de verificación; el aliado no la sube.
-  (d) => d.tipo !== 'SELFIE'
-);
+export const DOCUMENTOS_AVALISTA: { tipo: TipoDocumentoSolicitud; label: string }[] = DOCUMENTOS_TITULAR;
 
+
+/**
+ * El evaluador devolvió la solicitud al vendedor (2026-10-12): la evaluación está en pausa hasta que se corrija y se marque como resuelta.
+ * `nota` es lo que falta o lo que hay que reemplazar.
+ */
+export interface DevolucionSolicitudResponse {
+  id: string;
+  solicitudId: string;
+  nota: string;
+  creadaPor: string;
+  creadaPorNombre: string | null;
+  creadaEn: string;
+  resueltaEn: string | null;
+  resueltaPor: string | null;
+  notaResolucion: string | null;
+  abierta: boolean;
+}
+
+/** El vínculo de la solicitud con su pedido (motoya-api): lo mínimo para mostrar «Moto por pedir PU-0007 · Rojo». */
+export interface PedidoUnidadDeSolicitudResponse {
+  solicitudId: string;
+  pedidoUnidadId: string;
+  numeroPedido: number;
+  modeloId: string;
+  color: string;
+}
