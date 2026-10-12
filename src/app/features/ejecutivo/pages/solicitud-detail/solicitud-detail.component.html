@@ -20,6 +20,36 @@
       }
     </div>
 
+    @if (puedeContinuar()) {
+      <mt-alert variant="info" title="Todavía no se envió a evaluación" class="solicitud-detail__devolucion">
+        Lo que llenaste está guardado, pero el evaluador no la ve hasta que la envíes.
+        <a class="link-button" [routerLink]="continuarLink()">Continuar y enviar a evaluación</a>
+      </mt-alert>
+    }
+
+    @if (devolucionAbierta(); as pausa) {
+      <mt-alert variant="warning" title="Tu solicitud volvió a ti: la evaluación está en pausa" class="solicitud-detail__devolucion">
+        <p class="solicitud-detail__devolucion-nota">«{{ pausa.nota }}»</p>
+        <p class="solicitud-detail__devolucion-meta">
+          Devuelta por {{ pausa.creadaPorNombre ?? 'el evaluador' }} el {{ pausa.creadaEn | date: 'dd/MM/yyyy HH:mm' }}. Corrige lo que se pide (puedes cambiar el aval o
+          reemplazar documentos más abajo) y avisa cuando esté listo.
+        </p>
+        <label class="solicitud-detail__devolucion-label">
+          ¿Qué corregiste? (opcional)
+          <textarea
+            rows="2"
+            [value]="notaCorreccion()"
+            (input)="notaCorreccion.set($any($event.target).value)"
+            placeholder="ej. Subí el recibo de luz y cambié el DNI del aval"
+          ></textarea>
+        </label>
+        @if (errorDevolucion()) {
+          <p class="solicitud-detail__devolucion-error">{{ errorDevolucion() }}</p>
+        }
+        <mt-button size="sm" [loading]="resolviendoDevolucion()" (click)="marcarCorregida()">Ya lo corregí</mt-button>
+      </mt-alert>
+    }
+
     <mt-card>
       <div card-header class="solicitud-detail__card-title"><mt-icon name="shield_person" [size]="16" /> Aval</div>
       @if (exp.avalista) {

@@ -405,10 +405,34 @@
               </p>
             }
 
-            <mt-button variant="secondary" (click)="abrirSelectorStock()">
-              <mt-icon name="inventory_2" [size]="18" />
-              {{ vinElegidoDelCatalogo() ? 'Cambiar moto' : 'Elegir moto del stock' }}
-            </mt-button>
+            @if (pedidoPorPedir(); as porPedir) {
+              <p class="catalogo-interno__seleccion">
+                <mt-icon name="add_shopping_cart" [size]="16" />
+                Moto por pedir: <strong>{{ nombreModeloPorPedir(porPedir.modeloId) }} · {{ porPedir.color }}</strong>
+                — se pide a gerencia al guardar.
+                <button type="button" class="link-button" (click)="quitarPedidoPorPedir()">Quitar</button>
+              </p>
+            }
+            @if (pedidoVinculado(); as pedido) {
+              @if (!pedidoPorPedir()) {
+                <p class="catalogo-interno__seleccion">
+                  <mt-icon name="add_shopping_cart" [size]="16" />
+                  Moto por pedir: <strong>{{ codigoDePedido(pedido.numeroPedido) }} · {{ nombreModeloPorPedir(pedido.modeloId) }} · {{ pedido.color }}</strong>
+                  — gerencia ya lo ve en Compras.
+                </p>
+              }
+            }
+
+            <div class="catalogo-interno__acciones">
+              <mt-button variant="secondary" (click)="abrirSelectorStock()">
+                <mt-icon name="inventory_2" [size]="18" />
+                {{ vinElegidoDelCatalogo() ? 'Cambiar moto' : 'Elegir moto del stock' }}
+              </mt-button>
+              <mt-button variant="ghost" (click)="abrirPedirMoto()">
+                <mt-icon name="add_shopping_cart" [size]="18" />
+                No está: pedir esta moto
+              </mt-button>
+            </div>
           }
         </div>
       }
@@ -542,6 +566,9 @@
               @if (vehiculo()?.numeroPeriodos) { · {{ vehiculo()?.numeroPeriodos }} cuotas }
             </p>
           }
+          @if (pedidoVinculado(); as pedido) {
+            <p class="review-block__meta">Moto por pedir · {{ codigoDePedido(pedido.numeroPedido) }}</p>
+          }
           <p class="review-block__meta">{{ vehiculo()?.incluyeSoat ? 'Incluye SOAT' : 'Sin SOAT' }}</p>
         </section>
 
@@ -553,11 +580,38 @@
         </section>
       </div>
 
+      @if (faltantes().length > 0) {
+        <mt-alert variant="warning" title="Falta completar antes de evaluar" class="wizard-alert">
+          <ul class="faltantes">
+            @for (f of faltantes(); track f.paso) {
+              <li>
+                {{ f.texto }}
+                <mt-button variant="ghost" size="sm" (click)="irAPaso(f.paso)">Completar</mt-button>
+              </li>
+            }
+          </ul>
+        </mt-alert>
+      }
+
+      @if (recomendados().length > 0) {
+        <mt-alert variant="info" title="Datos recomendados de la moto" class="wizard-alert">
+          No son obligatorios, pero ayudan al evaluador: {{ recomendados().join(', ') }}.
+          <mt-button variant="ghost" size="sm" (click)="irAPaso('vehiculo')">Completar</mt-button>
+        </mt-alert>
+      }
+
       @if (correoTitularPendienteDeVerificar()) {
         <mt-alert variant="warning" title="Correo del titular sin verificar" class="wizard-alert">
           El cliente todavía no confirmó el código. Vuelve al paso <strong>Titular</strong> y escribe el código que te
           pase: si ya se le envió uno, sigue vigente y no hace falta pedir otro.
         </mt-alert>
+      }
+
+      @if (solicitud()?.estado === 'INCOMPLETA') {
+        <p class="form-hint wizard-alert">
+          Todo lo que llenaste ya está guardado, pero <strong>la solicitud todavía no está en evaluación</strong>. Cuando pulses
+          «Enviar a evaluación» pasa al evaluador y se avisa por WhatsApp al aval y a las referencias.
+        </p>
       }
 
       <div card-footer class="step-actions">
@@ -566,7 +620,14 @@
           @if (pasoIndex() > 0) {
             <mt-button variant="ghost" (click)="atras()">Atrás</mt-button>
           }
-          <mt-button class="mt-button--fill-movil" (click)="finalizar()" [disabled]="correoTitularPendienteDeVerificar()">Confirmar y enviar</mt-button>
+          <mt-button
+            class="mt-button--fill-movil"
+            (click)="finalizar()"
+            [loading]="guardando()"
+            [disabled]="correoTitularPendienteDeVerificar() || faltantes().length > 0"
+          >
+            {{ solicitud()?.estado === 'INCOMPLETA' ? 'Enviar a evaluación' : 'Listo' }}
+          </mt-button>
         </div>
       </div>
     </mt-card>
@@ -578,10 +639,10 @@
       <div class="success-screen__badge">
         <mt-icon name="task_alt" [size]="40" [filled]="true" />
       </div>
-      <h2>Solicitud registrada</h2>
+      <h2>Enviada a evaluación</h2>
       <p>
-        El código <strong>{{ solicitud()?.codigoSolicitud }}</strong> ya está listo para que un asesor la evalúe.
-        Te avisaremos en cuanto haya una decisión.
+        El código <strong>{{ solicitud()?.codigoSolicitud }}</strong> ya está con el evaluador. Al aval y a las referencias se les avisa por
+        WhatsApp (el evaluador ve en el expediente si el aviso salió). Te avisaremos en cuanto haya una decisión.
       </p>
       <div class="success-screen__acciones">
         <mt-button variant="secondary" (click)="nuevaSolicitud()">

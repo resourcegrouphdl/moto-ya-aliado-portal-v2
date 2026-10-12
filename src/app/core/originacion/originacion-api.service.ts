@@ -15,6 +15,8 @@ import {
   DatosReferencia,
   DatosVehiculo,
   DocumentoSolicitudResponse,
+  DevolucionSolicitudResponse,
+  PedidoUnidadDeSolicitudResponse,
   EstadoVerificacionEmail,
   ExpedienteSolicitudResponse,
   HistorialSolicitudCliente,
@@ -72,6 +74,28 @@ export class OriginacionApiService {
   /** Detalle completo para la pantalla "mi solicitud" del vendedor (fase 3) — titular/avalista/vehículo/referencias. */
   obtenerExpediente(solicitudId: string): Observable<ExpedienteSolicitudResponse> {
     return this.http.get<ExpedienteSolicitudResponse>(`${this.base}/solicitudes/${solicitudId}/expediente`);
+  }
+
+  /** Devoluciones del evaluador, de la más reciente a la más antigua; la que tenga `abierta` tiene la evaluación en pausa. */
+  listarDevoluciones(solicitudId: string): Observable<DevolucionSolicitudResponse[]> {
+    return this.http.get<DevolucionSolicitudResponse[]>(`${this.base}/solicitudes/${solicitudId}/devoluciones`);
+  }
+
+  /** El vendedor da por corregido lo que se le devolvió: levanta la pausa y el evaluador retoma. `nota` (opcional) cuenta qué corrigió. */
+  resolverDevolucion(solicitudId: string, nota?: string): Observable<DevolucionSolicitudResponse> {
+    return this.http.post<DevolucionSolicitudResponse>(`${this.base}/solicitudes/${solicitudId}/devoluciones/resolver`, { nota: nota ?? null });
+  }
+
+  /** El pedido de unidad de la moto «por pedir» de esta solicitud (DEC-152); cuerpo vacío si no tiene. */
+  consultarPedidoUnidad(solicitudId: string): Observable<PedidoUnidadDeSolicitudResponse | null> {
+    return this.http.get<PedidoUnidadDeSolicitudResponse | null>(`${this.base}/solicitudes/${solicitudId}/pedido-unidad`);
+  }
+
+  vincularPedidoUnidad(
+    solicitudId: string,
+    datos: { pedidoUnidadId: string; numeroPedido: number; modeloId: string; color: string }
+  ): Observable<PedidoUnidadDeSolicitudResponse> {
+    return this.http.put<PedidoUnidadDeSolicitudResponse>(`${this.base}/solicitudes/${solicitudId}/pedido-unidad`, datos);
   }
 
   /** Se llama tras subir los documentos mínimos de titular y aval — ver MarcarSolicitudCompletaUseCase en motoya-api. */
