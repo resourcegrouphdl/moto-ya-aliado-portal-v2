@@ -401,17 +401,18 @@ export const ESTADO_DOCUMENTO_SOLICITUD_BADGE_VARIANT: Record<EstadoDocumentoSol
 };
 
 /**
- * Slots de documentos que el wizard del vendedor ofrece para subir a mano. **Sin DNI**: la foto del DNI entra por el
- * flujo con OCR (`mt-documento-identidad-upload`), que además la registra como `DNI_FRENTE` — ofrecerla también acá
- * era el duplicado que se eliminó en la etapa 3 (2026-09-23). Los tipos `DNI_FRENTE`/`DNI_REVERSO` siguen existiendo
- * en el catálogo: los usan los documentos ya subidos y el «reemplazar» del analista en admin-v2 (que sí conserva sus
- * slots, porque ahí no hay bloque de OCR y es la única vía para reemplazar un DNI observado).
+ * Slots de documentos que el wizard del vendedor ofrece para subir a mano. **Con frente y reverso del documento de identidad**
+ * (2026-10-27): el backend exige las dos caras del DNI/carné del titular y del aval para completar la solicitud, y el lector con OCR
+ * (`mt-documento-identidad-upload`) solo captura el frente —y en silencio: si fallaba, no quedaba nada—. El slot del frente muestra la
+ * foto que el lector ya registró; si no hay, se sube acá. El reverso solo se sube acá.
  */
 /**
  * **Sin selfie ni fachada** (decisión del usuario, 2026-10-12): la verificación de domicilio por enlace con GPS (DEC-030/033) las reemplaza, para
  * titular y aval. Los tipos SELFIE y FACHADA siguen existiendo en el catálogo solo para los documentos ya subidos.
  */
 export const DOCUMENTOS_TITULAR: { tipo: TipoDocumentoSolicitud; label: string }[] = [
+  { tipo: 'DNI_FRENTE', label: 'DNI / carné de extranjería — frente' },
+  { tipo: 'DNI_REVERSO', label: 'DNI / carné de extranjería — reverso' },
   { tipo: 'LICENCIA_FRENTE', label: 'Licencia de conducir — frente' },
   { tipo: 'LICENCIA_REVERSO', label: 'Licencia de conducir — reverso' },
   { tipo: 'CERTIFICADO_LABORAL', label: 'Certificado laboral' },
