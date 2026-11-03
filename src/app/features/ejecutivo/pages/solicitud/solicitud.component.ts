@@ -1129,7 +1129,8 @@ export class SolicitudComponent {
     this.registrarDniPorDocumentManagement(solicitudId, this.fotoIdentidadTitularArchivo(), 'TITULAR', url).subscribe({
       next: (documento) => this.onDocumentoTitularSubido(documento),
       error: () => {
-        /* No bloquea — el vendedor puede subirla de nuevo manualmente en el paso de documentos. */
+        /* No bloquea, pero tampoco se calla: el slot del frente en este paso queda vacío y se sube a mano. */
+        this.error.set('No se pudo guardar la foto del documento (frente). Súbela en esta pantalla.');
       }
     });
   }
@@ -1209,7 +1210,8 @@ export class SolicitudComponent {
     this.registrarDniPorDocumentManagement(solicitudId, this.fotoIdentidadAvalistaArchivo(), 'AVALISTA', url).subscribe({
       next: (documento) => this.onDocumentoAvalistaSubido(documento),
       error: () => {
-        /* No bloquea — el vendedor puede subirla de nuevo manualmente en el paso de documentos. */
+        /* No bloquea, pero tampoco se calla: el slot del frente en este paso queda vacío y se sube a mano. */
+        this.error.set('No se pudo guardar la foto del documento (frente). Súbela en esta pantalla.');
       }
     });
   }
