@@ -7,7 +7,6 @@ import { DocumentosApiService } from '../../../../core/documentos/documentos-api
 import { SoatApiService } from '../../../../core/soat/soat-api.service';
 import {
   comisionEstimada,
-  CuentaEmpresa,
   DetalleDelPago,
   DocumentoDelCliente,
   ESTADO_BADGE,
@@ -65,7 +64,6 @@ export class SoatDetalleComponent {
   protected readonly formalizacion = signal<Formalizacion | null>(null);
   protected readonly simulacion = signal<Simulacion | null>(null);
   protected readonly instruccion = signal<InstruccionDePago | null>(null);
-  protected readonly cuenta = signal<CuentaEmpresa | null>(null);
   protected readonly cobro = signal<DetalleDelPago | null>(null);
   protected readonly cargando = signal(true);
   protected readonly ocupado = signal<string | null>(null);
@@ -154,7 +152,6 @@ export class SoatDetalleComponent {
     if (this.esperaPago()) {
       // Idempotente: repetirlo devuelve las mismas instrucciones de depósito.
       this.api.iniciarCobro(this.id, this.tipoDeCobro()).subscribe({ next: (i) => this.instruccion.set(i), error: () => undefined });
-      this.api.cuentasDeLaEmpresa().subscribe({ next: (cs) => this.cuenta.set(cs.find((c) => c.recaudadora) ?? null), error: () => undefined });
     }
   }
 

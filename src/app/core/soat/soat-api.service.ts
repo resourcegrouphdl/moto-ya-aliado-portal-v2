@@ -4,7 +4,6 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   ConsultaDePlaca,
-  CuentaEmpresa,
   DetalleDelPago,
   DocumentoDelCliente,
   EstadoSolicitudSoat,
@@ -96,11 +95,6 @@ export class SoatApiService {
 
   sincronizarFirma(id: string): Observable<Formalizacion> {
     return this.http.put<Formalizacion>(`${this.base}/solicitudes/${id}/formalizacion/firma/sincronizar`, {});
-  }
-
-  /** Las cuentas de la empresa: la recaudadora es adonde deposita el cliente. Si el rol no las ve, queda el nombre que manda el cobro. */
-  cuentasDeLaEmpresa(): Observable<CuentaEmpresa[]> {
-    return this.http.get<CuentaEmpresa[]>(`${environment.gatewayBaseUrl}/partner/maestro/cuentas-empresa`);
   }
 
   /** Abre el cobro (el pago completo del contado o la inicial del crédito) y dice adónde depositar. Repetirlo devuelve lo mismo. */

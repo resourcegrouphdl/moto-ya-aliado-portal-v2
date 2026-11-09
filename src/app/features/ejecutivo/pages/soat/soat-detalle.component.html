@@ -208,9 +208,9 @@
           <mt-card>
             <div class="det-deposito" data-testid="instruccion-pago">
               <p>El cliente deposita <strong>{{ soles(i.monto) }}</strong> a la cuenta de la empresa:</p>
-              <p class="det-destacado">{{ cuenta()?.banco || i.cuentaDeDeposito }}{{ cuenta() ? ' · ' + cuenta()!.numeroDeCuenta : '' }}</p>
-              @if (cuenta()?.cci) {
-                <p class="det-nota">CCI {{ cuenta()!.cci }}</p>
+              <p class="det-destacado">{{ i.cuentaDeDeposito }}{{ i.numeroDeCuenta ? ' · ' + i.numeroDeCuenta : '' }}</p>
+              @if (i.cci) {
+                <p class="det-nota">CCI {{ i.cci }}</p>
               }
             </div>
           </mt-card>

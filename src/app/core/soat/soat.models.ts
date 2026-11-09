@@ -230,7 +230,10 @@ export interface Formalizacion {
 
 export interface InstruccionDePago {
   monto: number;
+  /** El nombre de la cuenta recaudadora; el servidor manda también su número y CCI para quien no puede leer las cuentas de la empresa. */
   cuentaDeDeposito: string;
+  numeroDeCuenta?: string | null;
+  cci?: string | null;
 }
 
 export type EstadoVoucher = 'PENDIENTE_VALIDACION' | 'VALIDADO' | 'RECHAZADO';
@@ -387,10 +390,3 @@ export function comisionEstimada(precio: number | null, origen: string): number 
   return Math.round(precio * 3) / 100;
 }
 
-/** Una cuenta de la empresa; la recaudadora es la que recibe los pagos de los clientes. */
-export interface CuentaEmpresa {
-  banco: string;
-  numeroDeCuenta: string;
-  cci: string | null;
-  recaudadora: boolean;
-}
