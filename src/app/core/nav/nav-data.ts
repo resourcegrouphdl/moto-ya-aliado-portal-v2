@@ -24,6 +24,7 @@ export const NAV_SECTIONS_POR_ROL: Record<RolAliado, NavSection[]> = {
       items: [
         { label: 'Clientes', icon: 'group', route: '/ejecutivo/clientes' },
         { label: 'Nueva solicitud', icon: 'assignment_add', route: '/ejecutivo/solicitud' },
+        { label: 'SOAT', icon: 'verified_user', route: '/ejecutivo/soat' },
         { label: 'Calculadora', icon: 'calculate', route: '/ejecutivo/calculadora' }
       ]
     }
@@ -34,6 +35,7 @@ export const NAV_SECTIONS_POR_ROL: Record<RolAliado, NavSection[]> = {
       items: [
         { label: 'Clientes', icon: 'group', route: '/ejecutivo/clientes' },
         { label: 'Nueva solicitud', icon: 'assignment_add', route: '/ejecutivo/solicitud' },
+        { label: 'SOAT', icon: 'verified_user', route: '/ejecutivo/soat' },
         { label: 'Calculadora', icon: 'calculate', route: '/ejecutivo/calculadora' },
         { label: 'Mis comisiones', icon: 'payments', route: '/ejecutivo/comisiones' }
       ]

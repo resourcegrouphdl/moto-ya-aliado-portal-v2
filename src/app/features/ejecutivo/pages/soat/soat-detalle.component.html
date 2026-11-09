@@ -1,0 +1,293 @@
+@if (cargando()) {
+  <p class="det-estado">Cargando la solicitud…</p>
+} @else if (!seguimiento()) {
+  <mt-alert variant="error" title="No se pudo cargar">{{ error() }}</mt-alert>
+  <a class="det-volver" routerLink="/ejecutivo/soat">Volver a mis SOAT</a>
+} @else {
+  @let s = seguimiento()!;
+
+  <a class="det-volver" routerLink="/ejecutivo/soat"><mt-icon name="arrow_back" [size]="18" /> Mis SOAT</a>
+
+  <mt-card>
+    <div class="det-cabecera">
+      <div>
+        <h1 class="det-codigo">{{ s.codigo }}</h1>
+        <p class="det-etapa" data-testid="etapa">{{ s.etapa }}</p>
+      </div>
+      <mt-badge [variant]="badgeEstado[s.estado]">{{ etiquetaEstado[s.estado] }}</mt-badge>
+    </div>
+    <dl class="det-datos">
+      <div><dt>Cliente</dt><dd>{{ s.clienteNombre || 'Sin nombre aún' }} · {{ s.numeroDocumento }}</dd></div>
+      <div><dt>Moto</dt><dd>{{ s.placa }} · {{ motoDe(s) }}</dd></div>
+      <div><dt>Forma de pago</dt><dd>{{ s.modalidad === 'CREDITO' ? 'A crédito' : 'Al contado' }}</dd></div>
+      <div><dt>Precio del SOAT</dt><dd>{{ s.precioSoat ? soles(s.precioSoat) : 'Aún no hay precio' }}</dd></div>
+    </dl>
+    @if (s.motivoDeCierre) {
+      <p class="det-nota">Motivo: {{ s.motivoDeCierre }}</p>
+    }
+  </mt-card>
+
+  @if (error()) {
+    <mt-alert variant="error">{{ error() }}</mt-alert>
+  }
+  @if (aviso()) {
+    <mt-alert variant="success">{{ aviso() }}</mt-alert>
+  }
+
+  @if (pasos().length > 0) {
+    <section class="det-seccion">
+      <h2>Cómo va el crédito</h2>
+      <mt-card>
+        <ol class="det-pasos" data-testid="linea-de-tiempo">
+          @for (p of pasos(); track p.titulo) {
+            <li class="paso" [class.paso--hecho]="p.situacion === 'HECHO'" [class.paso--actual]="p.situacion === 'ACTUAL'">
+              <span class="paso__marca" aria-hidden="true">{{ p.situacion === 'HECHO' ? '✓' : p.situacion === 'ACTUAL' ? '●' : '○' }}</span>
+              <div>
+                <strong>{{ p.titulo }}</strong>
+                @if (p.situacion === 'ACTUAL') {
+                  <span class="paso__quien">Le toca a: {{ p.quien }}</span>
+                  <span class="paso__decir">Qué decirle al cliente: {{ p.queDecirle }}</span>
+                }
+              </div>
+            </li>
+          }
+        </ol>
+      </mt-card>
+      @if (comision() !== null) {
+        <p class="det-nota">Tu comisión estimada: {{ soles(comision()) }} (3 % del valor cotizado). Se devenga cuando el SOAT queda activo y se liquida por periodo; esto es solo informativo.</p>
+      }
+    </section>
+  }
+
+  @if (puedeDeclarar()) {
+    <section class="det-seccion">
+      <h2>Autorización del cliente</h2>
+      <p class="det-nota">Antes de pedir el precio, el cliente debe autorizar el uso de sus datos. Si lo hizo por WhatsApp o de palabra, declara cómo.</p>
+      @if (!declarando()) {
+        <mt-button variant="secondary" (click)="declarando.set(true)" data-testid="declarar">Declarar que el cliente autorizó</mt-button>
+      } @else {
+        <div class="det-form">
+          <mt-input label="¿Cómo autorizó el cliente?" name="declaracion" [ngModel]="declaracion()" (ngModelChange)="declaracion.set($event)" hint="Por ejemplo: «Lo aceptó por WhatsApp desde su celular»." />
+          <div class="det-acciones">
+            <mt-button variant="secondary" (click)="declarando.set(false)">Cancelar</mt-button>
+            <mt-button [disabled]="declaracion().trim() === ''" [loading]="ocupado() === 'consentimiento'" (click)="declarar()">Registrar autorización</mt-button>
+          </div>
+        </div>
+      }
+    </section>
+  }
+
+  @if (puedePedirPrecio()) {
+    <section class="det-seccion">
+      <h2>Precio</h2>
+      <mt-button [loading]="ocupado() === 'precio'" (click)="pedirPrecio()" data-testid="pedir-precio">Pedir el precio del SOAT</mt-button>
+    </section>
+  }
+
+  @if (muestraCuotas()) {
+    <section class="det-seccion">
+      <h2>Las cuotas del crédito</h2>
+      <mt-button variant="secondary" [loading]="ocupado() === 'cuotas'" (click)="verCuotas()" data-testid="ver-cuotas">
+        {{ simulacion() ? 'Actualizar las cuotas' : 'Ver las cuotas para el cliente' }}
+      </mt-button>
+      @if (simulacion(); as sim) {
+        <mt-card>
+          <div class="det-simulacion" data-testid="simulacion">
+            @if (sim.conPrecioReferencial) {
+              <p class="det-nota">Con un precio de referencia: el precio final lo da Motoya.</p>
+            }
+            <p>SOAT: <strong>{{ soles(sim.cotizacion.precioSoat) }}</strong></p>
+            <p class="det-destacado">Hoy paga (inicial): {{ soles(sim.cotizacion.inicial) }}</p>
+            @if (sim.cotizacion.cronograma.cuotas.length > 0) {
+              <p class="det-destacado">
+                Luego {{ sim.cotizacion.cronograma.cuotas.length }} cuotas semanales de {{ soles(sim.cotizacion.cronograma.cuotas[0].total) }}
+              </p>
+            }
+            <p>Total a pagar en cuotas: {{ soles(sim.cotizacion.cronograma.totalAPagar) }}</p>
+            <ul class="det-cuotas">
+              @for (c of sim.cotizacion.cronograma.cuotas; track c.numero) {
+                <li><span>Cuota {{ c.numero }} · {{ c.fechaVencimiento }}</span><span>{{ soles(c.total) }}</span></li>
+              }
+            </ul>
+          </div>
+        </mt-card>
+      }
+    </section>
+  }
+
+  @if (puedeAceptarPrecio() || puedeCobrarContado() || puedeEvaluar()) {
+    <section class="det-seccion">
+      <h2>Precio listo para el cliente</h2>
+      <div class="det-acciones">
+        @if (puedeAceptarPrecio()) {
+          <mt-button variant="secondary" [loading]="ocupado() === 'aceptar'" (click)="aceptarPrecio()" data-testid="aceptar-precio">El cliente aceptó el precio</mt-button>
+        }
+        @if (puedeCobrarContado()) {
+          <mt-button [loading]="ocupado() === 'cobrar'" (click)="cobrarContado()" data-testid="cobrar">Cobrar al cliente</mt-button>
+        }
+        @if (puedeEvaluar()) {
+          <mt-button [loading]="ocupado() === 'evaluar'" (click)="evaluar()" data-testid="evaluar">Evaluar el crédito</mt-button>
+        }
+      </div>
+      @if (esCredito() && !cumplidos().has('PRECIO_ACEPTADO') && s.estado === 'COTIZADA') {
+        <p class="det-nota">Primero registra que el cliente aceptó el precio; luego se evalúa el crédito.</p>
+      }
+    </section>
+  }
+
+  @if (s.estado === 'EN_REVISION') {
+    <mt-alert variant="info">Gerencia está revisando el crédito. Te avisamos con la decisión; no hace falta que el cliente haga nada.</mt-alert>
+  }
+  @if (s.estado === 'EN_EVALUACION') {
+    <mt-alert variant="info">Estamos evaluando el crédito. Vuelve a abrir la solicitud en unos minutos.</mt-alert>
+  }
+
+  @if (muestraDocumentos()) {
+    <section class="det-seccion">
+      <h2>Documentos del cliente</h2>
+      <p class="det-nota">Para formalizar el crédito hacen falta el documento de identidad y la TIVE.</p>
+      @for (d of documentosDelCliente; track d.hito) {
+        <mt-card>
+          <div class="det-documento">
+            <div>
+              <strong>{{ d.etiqueta }}</strong>
+              <span class="det-nota">{{ cumplidos().has(d.hito) ? 'Listo' : d.ayuda }}</span>
+            </div>
+            <label class="det-archivo" [class.det-archivo--ocupado]="ocupado() === d.hito">
+              <input type="file" accept="image/*,application/pdf" [disabled]="ocupado() !== null" (change)="subirDocumento(d.hito, $event)" [attr.data-testid]="'archivo-' + d.hito" />
+              <mt-icon name="upload_file" [size]="18" /> {{ ocupado() === d.hito ? 'Subiendo…' : cumplidos().has(d.hito) ? 'Cambiar' : 'Subir foto' }}
+            </label>
+          </div>
+        </mt-card>
+      }
+    </section>
+  }
+
+  @if (puedeFormalizar()) {
+    <section class="det-seccion">
+      <h2>Formalizar el crédito</h2>
+      <p class="det-nota">Crédito aprobado. Sigue armar el contrato y el cronograma; el cliente lo firma por correo.</p>
+      @if (faltanDocumentos().length > 0) {
+        <mt-alert variant="warning">Antes de formalizar falta: {{ faltanDocumentos()[0].etiqueta }}{{ faltanDocumentos().length > 1 ? ' y ' + faltanDocumentos()[1].etiqueta : '' }}.</mt-alert>
+      }
+      <mt-button [disabled]="faltanDocumentos().length > 0" [loading]="ocupado() === 'formalizar'" (click)="formalizar()" data-testid="formalizar">Formalizar el crédito</mt-button>
+    </section>
+  }
+
+  @if (muestraContrato() && formalizacion(); as f) {
+    <section class="det-seccion">
+      <h2>El contrato</h2>
+      <mt-card>
+        <p><strong>{{ f.credito.numeroContrato || 'Contrato del crédito' }}</strong></p>
+        <p class="det-nota" data-testid="resumen-contrato">
+          Inicial {{ soles(f.credito.inicial) }} · {{ f.credito.numeroCuotas }} cuotas semanales · financiado {{ soles(f.credito.montoFinanciado) }} · total {{ soles(f.credito.totalAPagar) }}
+        </p>
+      </mt-card>
+      <div class="det-acciones">
+        @if (f.credito.contratoGenerado) {
+          <mt-button variant="secondary" [loading]="ocupado() === 'ver-contrato'" (click)="verContrato()">Ver el contrato</mt-button>
+        } @else {
+          <mt-alert variant="warning">El documento del contrato todavía no se pudo armar.</mt-alert>
+          <mt-button variant="secondary" [loading]="ocupado() === 'contrato'" (click)="generarContrato()" data-testid="reintentar-contrato">Reintentar armar el contrato</mt-button>
+        }
+      </div>
+      @if (firmado()) {
+        <mt-alert variant="success">El cliente ya firmó el contrato.</mt-alert>
+      } @else {
+        <p class="det-nota">El cliente firma por correo. Cuando lo haga, aquí aparece solo; si tarda, puedes verificarlo.</p>
+        <mt-button variant="secondary" [loading]="ocupado() === 'firma'" (click)="verificarFirma()">Verificar si ya firmó</mt-button>
+      }
+    </section>
+  }
+
+  @if (esperaPago() || (cobro() && cobro()!.vouchers.length > 0)) {
+    <section class="det-seccion">
+      <h2>{{ esCredito() ? 'La inicial' : 'Pago' }}</h2>
+      @if (esperaPago()) {
+        @if (instruccion(); as i) {
+          <mt-card>
+            <div class="det-deposito" data-testid="instruccion-pago">
+              <p>El cliente deposita <strong>{{ soles(i.monto) }}</strong> a la cuenta de la empresa:</p>
+              <p class="det-destacado">{{ cuenta()?.banco || i.cuentaDeDeposito }}{{ cuenta() ? ' · ' + cuenta()!.numeroDeCuenta : '' }}</p>
+              @if (cuenta()?.cci) {
+                <p class="det-nota">CCI {{ cuenta()!.cci }}</p>
+              }
+            </div>
+          </mt-card>
+        } @else if (esCredito()) {
+          <mt-button [loading]="ocupado() === 'cobrar-inicial'" (click)="cobrarInicial()">Cobrar la inicial</mt-button>
+        }
+        @if (instruccion()) {
+          <p class="det-nota">Cuando el cliente deposite, sube la foto del voucher. Tesorería lo valida contra el banco.</p>
+          @if (!voucherDocumentoId()) {
+            <label class="det-archivo det-archivo--principal" [class.det-archivo--ocupado]="ocupado() === 'voucher'">
+              <input type="file" accept="image/*,application/pdf" [disabled]="ocupado() !== null" (change)="elegirVoucher($event)" data-testid="archivo-voucher" />
+              <mt-icon name="upload_file" [size]="18" /> {{ ocupado() === 'voucher' ? 'Subiendo…' : 'Subir el voucher' }}
+            </label>
+          } @else {
+            <mt-card>
+              <div class="det-form" data-testid="confirmar-voucher">
+                <p class="det-nota">Revisa los datos del voucher antes de enviarlo.</p>
+                <mt-input label="Monto (S/)" name="vMonto" type="number" inputmode="decimal" [ngModel]="voucherMonto()" (ngModelChange)="voucherMonto.set($event)" />
+                <mt-input label="Fecha de la operación (AAAA-MM-DD)" name="vFecha" [ngModel]="voucherFecha()" (ngModelChange)="voucherFecha.set($event)" inputmode="numeric" />
+                <mt-input label="Entidad" name="vEntidad" [ngModel]="voucherEntidad()" (ngModelChange)="voucherEntidad.set($event)" />
+                <mt-input label="N.º de operación" name="vOperacion" [ngModel]="voucherOperacion()" (ngModelChange)="voucherOperacion.set($event)" />
+                <div class="det-acciones">
+                  <mt-button variant="secondary" (click)="descartarVoucher()">Cancelar</mt-button>
+                  <mt-button [disabled]="!voucherListo()" [loading]="ocupado() === 'enviar-voucher'" (click)="enviarVoucher()">Enviar el voucher</mt-button>
+                </div>
+              </div>
+            </mt-card>
+          }
+        }
+      }
+      @if (cobro(); as c) {
+        @for (v of c.vouchers; track v.id) {
+          <mt-card>
+            <div class="det-voucher">
+              <span>Voucher de {{ soles(v.monto) }} · {{ v.entidad }} {{ v.numeroOperacion }}</span>
+              <mt-badge [variant]="badgeVoucher[v.estado]">{{ etiquetaVoucher[v.estado] }}</mt-badge>
+            </div>
+            @if (v.motivoRechazo) {
+              <p class="det-nota">Motivo: {{ v.motivoRechazo }}</p>
+            }
+          </mt-card>
+        }
+      }
+    </section>
+  }
+
+  @if (puedeDesistir()) {
+    <section class="det-seccion">
+      @if (!desistiendo()) {
+        <button type="button" class="det-desistir" (click)="desistiendo.set(true)" data-testid="desistir">El cliente desiste de la solicitud</button>
+      } @else {
+        <mt-card>
+          <div class="det-form">
+            <mt-input label="¿Por qué desiste?" name="motivo" [ngModel]="motivo()" (ngModelChange)="motivo.set($event)" hint="Queda registrado en el historial." />
+            @if (esCredito() && cumplidos().has('INICIAL_CONFIRMADA')) {
+              <mt-alert variant="warning">Como la inicial ya fue pagada, gerencia decide la penalidad (30 % de la inicial si desiste el cliente) y le devuelve el resto.</mt-alert>
+            }
+            <div class="det-acciones">
+              <mt-button variant="secondary" (click)="desistiendo.set(false)">Volver</mt-button>
+              <mt-button variant="danger" [disabled]="motivo().trim() === ''" [loading]="ocupado() === 'desistir'" (click)="desistir()">Cancelar la solicitud</mt-button>
+            </div>
+          </div>
+        </mt-card>
+      }
+    </section>
+  }
+
+  @if (eventos().length > 0) {
+    <section class="det-seccion">
+      <h2>Historial</h2>
+      <mt-card>
+        <ul class="det-historial">
+          @for (e of eventos(); track $index) {
+            <li><span>{{ textoDelEvento(e) }}</span><span class="det-nota">{{ e.ocurridoEn | date: 'dd/MM HH:mm' : '-0500' }}</span></li>
+          }
+        </ul>
+      </mt-card>
+    </section>
+  }
+}

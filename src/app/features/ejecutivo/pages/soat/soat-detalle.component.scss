@@ -1,0 +1,240 @@
+:host {
+  display: block;
+  max-width: 760px;
+}
+
+.det-estado {
+  padding: var(--space-8);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.det-volver {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+  margin-bottom: var(--space-3);
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: none;
+  touch-action: manipulation;
+}
+
+.det-cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.det-codigo {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.det-etapa {
+  margin: var(--space-1) 0 0;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.det-datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+
+  dt {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  dd {
+    margin: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+}
+
+.det-seccion {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+
+  h2 {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+}
+
+.det-nota {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.det-destacado {
+  margin: 0;
+  font-weight: 700;
+  font-size: var(--text-md, 1rem);
+}
+
+.det-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.det-form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.det-pasos {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.paso {
+  display: flex;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+
+  > div {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &--hecho,
+  &--actual {
+    color: var(--color-text);
+  }
+}
+
+.paso__marca {
+  width: 20px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.paso:not(.paso--hecho):not(.paso--actual) .paso__marca {
+  color: var(--color-text-muted);
+}
+
+.paso__quien {
+  font-size: var(--text-sm);
+  color: var(--color-primary);
+}
+
+.paso__decir {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.det-cuotas,
+.det-historial {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    font-size: var(--text-sm);
+  }
+}
+
+.det-simulacion p {
+  margin: 0 0 var(--space-1);
+}
+
+.det-documento,
+.det-voucher {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+
+  > div {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+}
+
+.det-deposito p {
+  margin: 0 0 var(--space-1);
+}
+
+.det-archivo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+
+  input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  &:focus-within {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  &--principal {
+    justify-content: center;
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+  }
+
+  &--ocupado {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+}
+
+.det-desistir {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-muted);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  text-align: left;
+  touch-action: manipulation;
+}
