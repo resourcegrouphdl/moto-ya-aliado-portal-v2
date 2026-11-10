@@ -117,6 +117,16 @@ export const ESTADOS_QUE_ADMITEN_DESISTIR: EstadoSolicitudSoat[] = ['REGISTRADA'
 export const ESTADOS_TERMINALES_MALOS: EstadoSolicitudSoat[] = ['RECHAZADA', 'DESISTIDA', 'VENCIDA', 'ANULADA'];
 
 /** Algo que le pasó a una solicitud suya (cambio de fase), dicho para el vendedor. Sale del historial; el servidor marca cuáles ya vio. */
+/** La póliza del SOAT activado: vigencia y una URL temporal del PDF para abrirlo o compartirlo con el cliente. */
+export interface PolizaDelSoat {
+  numero: string;
+  aseguradora: string;
+  vigenteDesde: string;
+  vigenteHasta: string;
+  entregada: boolean;
+  url: string;
+}
+
 export type TramoDeMora = 'VIGENTE' | 'DE_1_A_8' | 'DE_9_A_30' | 'DE_31_A_60' | 'DE_61_A_120' | 'MAS_DE_120';
 
 export const TRAMO_LABEL: Record<TramoDeMora, string> = {

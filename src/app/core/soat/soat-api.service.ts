@@ -12,6 +12,7 @@ import {
   Formalizacion,
   InstruccionDePago,
   LecturaDelVoucher,
+  PolizaDelSoat,
   MiCartera,
   RegistrarSolicitudRequest,
   RenovacionPorHacer,
@@ -33,6 +34,10 @@ export class SoatApiService {
 
   consultarPlaca(placa: string): Observable<ConsultaDePlaca> {
     return this.http.get<ConsultaDePlaca>(`${this.base}/consultas/placa/${encodeURIComponent(placa)}`);
+  }
+
+  poliza(id: string): Observable<PolizaDelSoat> {
+    return this.http.get<PolizaDelSoat>(`${this.base}/solicitudes/${id}/poliza`);
   }
 
   renovaciones(): Observable<RenovacionPorHacer[]> {

@@ -1,3 +1,4 @@
+import { MtDatePipe } from '../../../../shared/pipes/mt-date.pipe';
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -10,6 +11,7 @@ import {
   DetalleDelPago,
   DocumentoDelCliente,
   ESTADO_BADGE,
+  PolizaDelSoat,
   ESTADO_LABEL,
   ESTADO_VOUCHER_BADGE,
   ESTADO_VOUCHER_LABEL,
@@ -49,7 +51,7 @@ const ESTADOS_CON_COBRO_DEL_CREDITO = ['FORMALIZANDO', 'ESPERANDO_PRENDA', 'ENVI
 @Component({
   selector: 'mt-soat-detalle-page',
   standalone: true,
-  imports: [DatePipe, FormsModule, RouterLink, AlertComponent, BadgeComponent, ButtonComponent, CardComponent, IconComponent, InputComponent],
+  imports: [DatePipe, MtDatePipe, FormsModule, RouterLink, AlertComponent, BadgeComponent, ButtonComponent, CardComponent, IconComponent, InputComponent],
   templateUrl: './soat-detalle.component.html',
   styleUrl: './soat-detalle.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -67,6 +69,7 @@ export class SoatDetalleComponent {
   protected readonly cobro = signal<DetalleDelPago | null>(null);
   protected readonly cargando = signal(true);
   protected readonly ocupado = signal<string | null>(null);
+  protected readonly poliza = signal<PolizaDelSoat | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
 
@@ -220,6 +223,14 @@ export class SoatDetalleComponent {
     this.ejecutar('contrato', this.api.generarContrato(this.id), (f) => {
       this.formalizacion.set(f);
       this.aviso.set(f.credito.contratoGenerado ? 'Contrato generado.' : 'Todavía no se pudo armar el contrato.');
+    });
+  }
+
+  /** Pide la póliza al servidor (la URL es temporal) y la abre; deja a la vista el número y la vigencia. */
+  protected abrirPoliza(): void {
+    this.ejecutar('poliza', this.api.poliza(this.id), (p) => {
+      this.poliza.set(p);
+      window.open(p.url, '_blank', 'noopener');
     });
   }
 

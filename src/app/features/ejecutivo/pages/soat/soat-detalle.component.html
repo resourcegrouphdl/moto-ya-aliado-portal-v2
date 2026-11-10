@@ -27,6 +27,22 @@
     }
   </mt-card>
 
+  @if (s.estado === 'ACTIVADA' || s.estado === 'CERRADA') {
+    <section class="det-seccion" data-testid="poliza">
+      <h2>La póliza</h2>
+      <mt-card>
+        <p class="det-nota">El SOAT está activo. Abre la póliza para dársela o compartírsela al cliente.</p>
+        @if (poliza(); as p) {
+          <dl class="det-datos">
+            <div><dt>Póliza</dt><dd>{{ p.numero }} · {{ p.aseguradora }}</dd></div>
+            <div><dt>Vigencia</dt><dd>{{ p.vigenteDesde | mtDate }} al {{ p.vigenteHasta | mtDate }}</dd></div>
+          </dl>
+        }
+        <mt-button [loading]="ocupado() === 'poliza'" (click)="abrirPoliza()" data-testid="abrir-poliza">Abrir la póliza (PDF)</mt-button>
+      </mt-card>
+    </section>
+  }
+
   @if (error()) {
     <mt-alert variant="error">{{ error() }}</mt-alert>
   }
