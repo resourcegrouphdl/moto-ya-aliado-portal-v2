@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { SoatApiService } from '../../../../core/soat/soat-api.service';
 import { ConsultaDePlaca, Modalidad, RegistrarSolicitudRequest, TipoDocumentoIdentidad } from '../../../../core/soat/soat.models';
 import { AlertComponent } from '../../../../shared/ui/alert/alert.component';
@@ -178,6 +178,15 @@ export class SoatNuevoComponent {
   protected readonly esCredito = computed(() => this.modalidad() === 'CREDITO');
   protected readonly placaNormalizada = computed(() => this.placa().replace(/[^A-Za-z0-9]/g, '').toUpperCase());
   protected readonly placaValida = computed(() => PLACA.test(this.placaNormalizada()));
+
+  constructor() {
+    // «Renovar» desde la lista de renovaciones llega con la placa: se escribe y se consulta sola, así el vendedor solo confirma al cliente.
+    const inicial = inject(ActivatedRoute).snapshot.queryParamMap.get('placa');
+    if (inicial) {
+      this.escribirPlaca(inicial);
+      if (this.placaValida()) this.consultar();
+    }
+  }
   protected readonly pideMoto = computed(() => {
     const c = this.consulta();
     return c !== null && !(c.moto.estado === 'ENCONTRADO' && c.moto.datos);

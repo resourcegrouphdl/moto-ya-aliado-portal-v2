@@ -153,6 +153,22 @@ export interface MiCartera {
   comision: { periodo: string; delMes: number; total: number; reversada: number; porGanar: number; solicitudesPorGanar: number };
 }
 
+export type UrgenciaDeRenovacion = 'VENCIDA' | 'ESTA_SEMANA' | 'PROXIMA' | 'DEL_MES';
+
+/** Una póliza que vence pronto (o venció hace poco) y nadie renovó: la venta repetida más fácil del vendedor. */
+export interface RenovacionPorHacer {
+  solicitudId: string;
+  codigo: string;
+  cliente: string;
+  celular: string;
+  placa: string;
+  moto: string;
+  aseguradora: string;
+  venceEl: string;
+  diasParaVencer: number;
+  urgencia: UrgenciaDeRenovacion;
+}
+
 export interface AvisoDeSoat {
   solicitudId: string;
   codigo: string;

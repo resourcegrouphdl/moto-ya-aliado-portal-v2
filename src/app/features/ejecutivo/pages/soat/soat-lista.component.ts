@@ -32,6 +32,11 @@ import { soles } from './soat.util';
       Mis clientes y comisión
     </a>
 
+    <a class="soat-clientes" routerLink="/ejecutivo/soat/renovaciones" data-testid="renovaciones">
+      <mt-icon name="autorenew" [size]="20" />
+      Renovaciones
+    </a>
+
     @if (bandeja(); as b) {
       @if (b.avisos.length > 0) {
         <mt-card [padded]="false" class="soat-novedades" data-testid="novedades">
