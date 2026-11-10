@@ -346,7 +346,7 @@ const PASOS: { titulo: string; quien: string; queDecirle: string; hecho: (s: Seg
   {
     titulo: 'Contrato firmado',
     quien: 'El cliente',
-    queDecirle: 'Le llegó el contrato a su correo: debe firmarlo para seguir.',
+    queDecirle: 'Motoya prepara su contrato y se lo manda a su correo para firmar: dile que esté atento y lo firme apenas lo reciba.',
     hecho: (s) => s.hitosCumplidos.includes('CONTRATO_FIRMADO') || llego(s, 'ESPERANDO_PRENDA')
   },
   {
