@@ -91,6 +91,13 @@ export const routes: Routes = [
         loadComponent: () => import('./features/ejecutivo/pages/soat/soat-lista.component').then((m) => m.SoatListaComponent)
       },
       {
+        // Mis clientes: la cartera SOAT del vendedor y su comisión. Antes de ':id' para que 'clientes' no se lea como un id.
+        path: 'ejecutivo/soat/clientes',
+        canActivate: [rolGuard],
+        data: { allowedRoles: ROLES_VENDEDOR },
+        loadComponent: () => import('./features/ejecutivo/pages/soat/soat-clientes.component').then((m) => m.SoatClientesComponent)
+      },
+      {
         path: 'ejecutivo/soat/nuevo',
         canActivate: [rolGuard],
         data: { allowedRoles: ROLES_VENDEDOR },

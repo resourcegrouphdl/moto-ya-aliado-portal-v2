@@ -27,6 +27,11 @@ import { soles } from './soat.util';
       Nuevo SOAT
     </a>
 
+    <a class="soat-clientes" routerLink="/ejecutivo/soat/clientes" data-testid="mis-clientes">
+      <mt-icon name="account_balance_wallet" [size]="20" />
+      Mis clientes y comisión
+    </a>
+
     @if (bandeja(); as b) {
       @if (b.avisos.length > 0) {
         <mt-card [padded]="false" class="soat-novedades" data-testid="novedades">
@@ -96,6 +101,19 @@ import { soles } from './soat.util';
       border-radius: var(--radius-md);
       background: var(--color-primary);
       color: #fff;
+      font-weight: 600;
+      text-decoration: none;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .soat-clientes {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      min-height: 48px;
+      margin: 0 0 var(--space-4) var(--space-2);
+      padding: 0 var(--space-4);
+      color: var(--color-primary);
       font-weight: 600;
       text-decoration: none;
       touch-action: manipulation;

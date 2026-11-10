@@ -12,6 +12,7 @@ import {
   Formalizacion,
   InstruccionDePago,
   LecturaDelVoucher,
+  MiCartera,
   RegistrarSolicitudRequest,
   RegistrarVoucherRequest,
   ResumenSolicitud,
@@ -31,6 +32,10 @@ export class SoatApiService {
 
   consultarPlaca(placa: string): Observable<ConsultaDePlaca> {
     return this.http.get<ConsultaDePlaca>(`${this.base}/consultas/placa/${encodeURIComponent(placa)}`);
+  }
+
+  miCartera(): Observable<MiCartera> {
+    return this.http.get<MiCartera>(`${this.base}/mi-cartera`);
   }
 
   avisos(): Observable<BandejaDeAvisos> {

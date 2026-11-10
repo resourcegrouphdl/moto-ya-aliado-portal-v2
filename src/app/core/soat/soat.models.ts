@@ -117,6 +117,42 @@ export const ESTADOS_QUE_ADMITEN_DESISTIR: EstadoSolicitudSoat[] = ['REGISTRADA'
 export const ESTADOS_TERMINALES_MALOS: EstadoSolicitudSoat[] = ['RECHAZADA', 'DESISTIDA', 'VENCIDA', 'ANULADA'];
 
 /** Algo que le pasó a una solicitud suya (cambio de fase), dicho para el vendedor. Sale del historial; el servidor marca cuáles ya vio. */
+export type TramoDeMora = 'VIGENTE' | 'DE_1_A_8' | 'DE_9_A_30' | 'DE_31_A_60' | 'DE_61_A_120' | 'MAS_DE_120';
+
+export const TRAMO_LABEL: Record<TramoDeMora, string> = {
+  VIGENTE: 'Al día',
+  DE_1_A_8: '1–8 días',
+  DE_9_A_30: '9–30 días',
+  DE_31_A_60: '31–60 días',
+  DE_61_A_120: '61–120 días',
+  MAS_DE_120: 'Más de 120'
+};
+
+export interface ClienteConCredito {
+  solicitudId: string;
+  codigo: string;
+  cliente: string;
+  placa: string;
+  numeroContrato: string;
+  saldo: number;
+  mora: number;
+  diasDeMora: number;
+  proximoVencimiento: string | null;
+  enVentanaDeAnulacion: boolean;
+  ultimoAviso: { tipo: string; estado: string; en: string } | null;
+  tramo: TramoDeMora;
+}
+
+/** «Mis clientes»: los créditos SOAT del vendedor por antigüedad de mora y su comisión (la del mes, la acumulada, la reversada y lo que está por ganar). */
+export interface MiCartera {
+  cartera: {
+    resumen: { creditosActivos: number; saldoPorCobrar: number; moraAcumulada: number; creditosEnMora: number; par1: number; par8: number; par30: number };
+    tramos: { tramo: TramoDeMora; creditos: number; saldo: number; porcentaje: number }[];
+    creditos: ClienteConCredito[];
+  };
+  comision: { periodo: string; delMes: number; total: number; reversada: number; porGanar: number; solicitudesPorGanar: number };
+}
+
 export interface AvisoDeSoat {
   solicitudId: string;
   codigo: string;
