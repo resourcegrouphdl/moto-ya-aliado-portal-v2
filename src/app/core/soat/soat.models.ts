@@ -160,7 +160,19 @@ export interface MiCartera {
     tramos: { tramo: TramoDeMora; creditos: number; saldo: number; porcentaje: number }[];
     creditos: ClienteConCredito[];
   };
-  comision: { periodo: string; delMes: number; total: number; reversada: number; porGanar: number; solicitudesPorGanar: number };
+  comision: {
+    periodo: string;
+    delMes: number;
+    total: number;
+    reversada: number;
+    porGanar: number;
+    solicitudesPorGanar: number;
+    /** Lo que Motoya ya te pagó, lo que te debe de SOAT activados y lo ya pagado cuyo SOAT se anuló después (se descuenta). */
+    pagado: number;
+    porCobrar: number;
+    aDescontar: number;
+    pagos: { periodo: string; fechaPago: string; monto: number; medio: string }[];
+  };
 }
 
 export type UrgenciaDeRenovacion = 'VENCIDA' | 'ESTA_SEMANA' | 'PROXIMA' | 'DEL_MES';

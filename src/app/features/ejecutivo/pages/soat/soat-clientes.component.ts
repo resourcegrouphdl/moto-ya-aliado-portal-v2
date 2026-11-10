@@ -28,8 +28,30 @@ import { soles } from './soat.util';
       <section class="cl-kpis" data-testid="comision">
         <mt-card><span class="cl-k">Ganado este mes</span><strong class="cl-v">{{ soles(d.comision.delMes) }}</strong></mt-card>
         <mt-card><span class="cl-k">Ganado en total</span><strong class="cl-v">{{ soles(d.comision.total) }}</strong>@if (d.comision.reversada > 0) { <span class="cl-s">{{ soles(d.comision.reversada) }} reversado</span> }</mt-card>
+        <mt-card><span class="cl-k">Ya te pagaron</span><strong class="cl-v" data-testid="pagado">{{ soles(d.comision.pagado) }}</strong></mt-card>
+        <mt-card>
+          <span class="cl-k">Te falta cobrar</span><strong class="cl-v" data-testid="por-cobrar">{{ soles(d.comision.porCobrar) }}</strong>
+          @if (d.comision.aDescontar > 0) { <span class="cl-s">{{ soles(d.comision.aDescontar) }} a descontar por SOAT anulados</span> }
+        </mt-card>
         <mt-card><span class="cl-k">Por ganar</span><strong class="cl-v">{{ soles(d.comision.porGanar) }}</strong><span class="cl-s">{{ d.comision.solicitudesPorGanar }} solicitudes en curso · estimado</span></mt-card>
       </section>
+
+      @if (d.comision.pagos.length > 0) {
+        <h2 class="cl-titulo">Pagos recibidos</h2>
+        <mt-card [padded]="false">
+          <ul class="cl-lista" data-testid="pagos">
+            @for (p of d.comision.pagos; track p.fechaPago + p.periodo + p.monto) {
+              <li class="cl-fila cl-fila--pago">
+                <div class="cl-principal">
+                  <strong>{{ soles(p.monto) }}</strong>
+                  <span class="cl-s">Comisión de {{ p.periodo }} · {{ p.medio }}</span>
+                </div>
+                <span class="cl-s">{{ p.fechaPago | mtDate }}</span>
+              </li>
+            }
+          </ul>
+        </mt-card>
+      }
 
       <h2 class="cl-titulo">Cartera de tus créditos</h2>
       @if (d.cartera.creditos.length === 0) {
@@ -90,6 +112,9 @@ import { soles } from './soat.util';
       margin: 0;
       padding: 0;
       list-style: none;
+    }
+    .cl-fila--pago {
+      cursor: default;
     }
     .cl-lista li:not(:first-child) {
       border-top: 1px solid var(--color-border);
