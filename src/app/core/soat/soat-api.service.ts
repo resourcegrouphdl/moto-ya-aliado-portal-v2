@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
+  BandejaDeAvisos,
   ConsultaDePlaca,
   DetalleDelPago,
   DocumentoDelCliente,
@@ -30,6 +31,14 @@ export class SoatApiService {
 
   consultarPlaca(placa: string): Observable<ConsultaDePlaca> {
     return this.http.get<ConsultaDePlaca>(`${this.base}/consultas/placa/${encodeURIComponent(placa)}`);
+  }
+
+  avisos(): Observable<BandejaDeAvisos> {
+    return this.http.get<BandejaDeAvisos>(`${this.base}/avisos`);
+  }
+
+  marcarAvisosVistos(): Observable<void> {
+    return this.http.put<void>(`${this.base}/avisos/vistos`, {});
   }
 
   listar(estado: EstadoSolicitudSoat | null = null): Observable<ResumenSolicitud[]> {

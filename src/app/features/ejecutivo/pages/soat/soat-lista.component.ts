@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { SoatApiService } from '../../../../core/soat/soat-api.service';
-import { ESTADO_BADGE, ESTADO_LABEL, ResumenSolicitud } from '../../../../core/soat/soat.models';
+import { BandejaDeAvisos, ESTADO_BADGE, ESTADO_LABEL, ResumenSolicitud } from '../../../../core/soat/soat.models';
 import { MtDatePipe } from '../../../../shared/pipes/mt-date.pipe';
 import { AlertComponent } from '../../../../shared/ui/alert/alert.component';
 import { BadgeComponent } from '../../../../shared/ui/badge/badge.component';
@@ -26,6 +26,33 @@ import { soles } from './soat.util';
       <mt-icon name="add" [size]="20" />
       Nuevo SOAT
     </a>
+
+    @if (bandeja(); as b) {
+      @if (b.avisos.length > 0) {
+        <mt-card [padded]="false" class="soat-novedades" data-testid="novedades">
+          <div class="soat-novedades__cabecera">
+            <strong>Novedades @if (b.sinLeer > 0) { <span class="soat-novedades__cuenta" data-testid="sin-leer">{{ b.sinLeer }}</span> }</strong>
+            @if (b.sinLeer > 0) {
+              <button type="button" class="soat-novedades__marcar" (click)="marcarVistos()">Marcar como vistas</button>
+            }
+          </div>
+          <ul class="soat-lista">
+            @for (a of b.avisos.slice(0, 5); track a.solicitudId + a.ocurridoEn) {
+              <li class="soat-lista__item">
+                <a class="soat-lista__enlace" [routerLink]="['/ejecutivo/soat', a.solicitudId]">
+                  <div class="soat-lista__principal">
+                    <strong [class.soat-novedades__nueva]="!a.leido">{{ a.titulo }}</strong>
+                    <span class="soat-lista__meta">{{ a.texto }}@if (a.motivo) { · {{ a.motivo }} }</span>
+                    <span class="soat-lista__meta">{{ a.cliente || a.codigo }} · {{ a.placa }}</span>
+                  </div>
+                  <span class="soat-lista__meta">{{ a.ocurridoEn | mtDate }}</span>
+                </a>
+              </li>
+            }
+          </ul>
+        </mt-card>
+      }
+    }
 
     @if (error()) {
       <mt-alert variant="error" title="No se pudo cargar">{{ error() }}</mt-alert>
@@ -76,6 +103,47 @@ import { soles } from './soat.util';
     }
     .soat-nuevo:active {
       transform: scale(0.97);
+    }
+    .soat-novedades {
+      display: block;
+      margin-bottom: var(--space-4);
+    }
+    .soat-novedades__cabecera {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-5);
+      border-bottom: 1px solid var(--color-border);
+    }
+    .soat-novedades__cuenta {
+      display: inline-block;
+      min-width: 20px;
+      padding: 0 6px;
+      border-radius: 10px;
+      background: var(--color-primary);
+      color: #fff;
+      font-size: var(--text-sm);
+      text-align: center;
+    }
+    .soat-novedades__marcar {
+      min-height: 44px;
+      padding: 0 var(--space-3);
+      border: 0;
+      background: transparent;
+      color: var(--color-primary);
+      font-weight: 600;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .soat-novedades__nueva::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      margin-right: var(--space-2);
+      border-radius: 50%;
+      background: var(--color-primary);
     }
     .soat-estado {
       padding: var(--space-8);
@@ -141,6 +209,7 @@ export class SoatListaComponent {
   private readonly api = inject(SoatApiService);
 
   protected readonly solicitudes = signal<ResumenSolicitud[]>([]);
+  protected readonly bandeja = signal<BandejaDeAvisos | null>(null);
   protected readonly cargando = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly etiqueta = ESTADO_LABEL;
@@ -148,6 +217,8 @@ export class SoatListaComponent {
   protected readonly soles = soles;
 
   constructor() {
+    // Las novedades son un extra: si fallan, la lista de solicitudes igual se muestra.
+    this.api.avisos().subscribe({ next: (b) => this.bandeja.set(b), error: () => this.bandeja.set(null) });
     this.api.listar().subscribe({
       next: (lista) => {
         this.solicitudes.set(lista);
@@ -157,6 +228,12 @@ export class SoatListaComponent {
         this.cargando.set(false);
         this.error.set('No se pudieron cargar tus solicitudes de SOAT. Inténtalo de nuevo.');
       }
+    });
+  }
+
+  protected marcarVistos(): void {
+    this.api.marcarAvisosVistos().subscribe({
+      next: () => this.bandeja.update((b) => (b ? { sinLeer: 0, avisos: b.avisos.map((a) => ({ ...a, leido: true })) } : b))
     });
   }
 

@@ -116,6 +116,25 @@ export const ESTADOS_QUE_ADMITEN_DESISTIR: EstadoSolicitudSoat[] = ['REGISTRADA'
 
 export const ESTADOS_TERMINALES_MALOS: EstadoSolicitudSoat[] = ['RECHAZADA', 'DESISTIDA', 'VENCIDA', 'ANULADA'];
 
+/** Algo que le pasó a una solicitud suya (cambio de fase), dicho para el vendedor. Sale del historial; el servidor marca cuáles ya vio. */
+export interface AvisoDeSoat {
+  solicitudId: string;
+  codigo: string;
+  cliente: string;
+  placa: string;
+  fase: EstadoSolicitudSoat;
+  titulo: string;
+  texto: string;
+  motivo: string | null;
+  ocurridoEn: string;
+  leido: boolean;
+}
+
+export interface BandejaDeAvisos {
+  sinLeer: number;
+  avisos: AvisoDeSoat[];
+}
+
 export interface ResumenSolicitud {
   id: string;
   codigo: string;
