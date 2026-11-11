@@ -84,6 +84,39 @@ export const routes: Routes = [
           import('./features/ejecutivo/pages/solicitud-detail/solicitud-detail.component').then((m) => m.SolicitudDetailComponent)
       },
       {
+        // SOAT al contado y a crédito (DEC-199/200): captar, seguir y cobrar. El servidor decide qué ve cada quien.
+        path: 'ejecutivo/soat',
+        canActivate: [rolGuard],
+        data: { allowedRoles: ROLES_VENDEDOR },
+        loadComponent: () => import('./features/ejecutivo/pages/soat/soat-lista.component').then((m) => m.SoatListaComponent)
+      },
+      {
+        // Renovaciones: pólizas que vencen pronto y nadie renovó. Antes de ':id'.
+        path: 'ejecutivo/soat/renovaciones',
+        canActivate: [rolGuard],
+        data: { allowedRoles: ROLES_VENDEDOR },
+        loadComponent: () => import('./features/ejecutivo/pages/soat/soat-renovaciones.component').then((m) => m.SoatRenovacionesComponent)
+      },
+      {
+        // Mis clientes: la cartera SOAT del vendedor y su comisión. Antes de ':id' para que 'clientes' no se lea como un id.
+        path: 'ejecutivo/soat/clientes',
+        canActivate: [rolGuard],
+        data: { allowedRoles: ROLES_VENDEDOR },
+        loadComponent: () => import('./features/ejecutivo/pages/soat/soat-clientes.component').then((m) => m.SoatClientesComponent)
+      },
+      {
+        path: 'ejecutivo/soat/nuevo',
+        canActivate: [rolGuard],
+        data: { allowedRoles: ROLES_VENDEDOR },
+        loadComponent: () => import('./features/ejecutivo/pages/soat/soat-nuevo.component').then((m) => m.SoatNuevoComponent)
+      },
+      {
+        path: 'ejecutivo/soat/:id',
+        canActivate: [rolGuard],
+        data: { allowedRoles: ROLES_VENDEDOR },
+        loadComponent: () => import('./features/ejecutivo/pages/soat/soat-detalle.component').then((m) => m.SoatDetalleComponent)
+      },
+      {
         path: 'ejecutivo/calculadora',
         canActivate: [rolGuard],
         data: { allowedRoles: ROLES_VENDEDOR },
