@@ -73,7 +73,8 @@
         <mt-input class="span-6" label="Apellido materno" formControlName="apellidoMaterno" />
         <mt-input class="span-6" label="Teléfono" formControlName="telefono" type="tel" icon="call" />
 
-        <mt-input class="span-12" label="Correo electrónico (opcional)" formControlName="email" type="email" icon="mail" />
+        <mt-input class="span-12" label="Correo electrónico" formControlName="email" type="email" icon="mail" hint="Obligatorio: se usa para la firma digital"
+          [errorMessage]="formTitular.controls.email.touched && formTitular.controls.email.invalid ? 'Escribe un correo válido' : ''" />
         @if (emailTitularTexto().trim() && formTitular.controls.email.valid) {
           <mt-verificacion-email class="span-12" [email]="emailTitularTexto()" (verificadoChange)="correoVerificado.set($event)" />
         }
@@ -259,6 +260,8 @@
         <mt-input class="span-4" label="Apellido materno" formControlName="apellidoMaterno" />
 
         <mt-input class="span-6" label="Teléfono" formControlName="telefono" type="tel" icon="call" />
+        <mt-input class="span-6" label="Correo electrónico del aval" formControlName="email" type="email" icon="mail" hint="Obligatorio: se usa para la firma digital"
+          [errorMessage]="formAvalista.controls.email.touched && formAvalista.controls.email.invalid ? 'Escribe un correo válido' : ''" />
         <mt-select class="span-6" label="Relación con el titular" formControlName="relacion" [options]="relaciones" />
 
         <mt-date-input

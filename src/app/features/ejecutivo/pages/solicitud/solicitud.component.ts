@@ -83,7 +83,7 @@ interface ValorDireccion {
   estadoCivil: EstadoCivil | null;
 }
 
-/** Identidad que hace falta para crear el cliente (el aval no captura correo en este wizard). */
+/** Identidad que hace falta para crear el cliente (titular y aval llevan correo desde DEC-229). */
 interface ValorIdentidad {
   tipoDocumento: TipoDocumentoIdentidad;
   numeroDocumento: string;
@@ -324,7 +324,8 @@ export class SolicitudComponent {
     apellidoPaterno: ['', Validators.required],
     apellidoMaterno: ['', Validators.required],
     telefono: [''],
-    email: ['', Validators.email],
+    // DEC-229: el correo es obligatorio (firma digital).
+    email: ['', [Validators.required, Validators.email]],
     // Ubicación (departamento/provincia/distrito del catálogo + su código) en un solo control: los tres selects
     // se habilitan en cascada y no se puede guardar un distrito que no pertenezca a su provincia (ver
     // UbigeoSelectorComponent). `direccion` es la dirección ESCRITA — la del recibo — y es la que imprime el
@@ -349,6 +350,8 @@ export class SolicitudComponent {
     apellidoPaterno: ['', Validators.required],
     apellidoMaterno: ['', Validators.required],
     telefono: [''],
+    // DEC-229: el correo del aval también es obligatorio (firma digital).
+    email: ['', [Validators.required, Validators.email]],
     ubicacion: [UBICACION_VACIA, ubicacionRequerida],
     direccion: ['', Validators.required],
     referencia: [''],
@@ -718,6 +721,7 @@ export class SolicitudComponent {
         apellidoPaterno: avalista.apellidoPaterno,
         apellidoMaterno: avalista.apellidoMaterno,
         telefono: avalista.telefono ?? '',
+        email: avalista.email ?? '',
         ubicacion: this.ubicacionDe(avalista),
         direccion: avalista.direccion ?? '',
         referencia: avalista.referencia ?? '',
@@ -1051,7 +1055,8 @@ export class SolicitudComponent {
       // backend rechaza una 2da solicitud para el mismo titular), así que
       // solo se actualiza la dirección/GPS y se avanza, sin recrear nada.
       this.api
-        .actualizarDireccionCliente(titularExistente.id, this.direccionDeFormulario(datos))
+        .actualizarContactoCliente(titularExistente.id, datos.telefono.trim() || null, datos.email.trim() || null)
+        .pipe(switchMap(() => this.api.actualizarDireccionCliente(titularExistente.id, this.direccionDeFormulario(datos))))
         .subscribe({
           next: (cliente) => {
             this.titular.set(cliente);
@@ -1073,7 +1078,9 @@ export class SolicitudComponent {
         // find-or-create, así que si el documento ya existía la dirección/GPS
         // tipeada en esta corrida del wizard se perdía sin este paso.
         switchMap((cliente) =>
-          this.api.actualizarDireccionCliente(cliente.id, this.direccionDeFormulario(datos))
+          this.api
+            .actualizarContactoCliente(cliente.id, datos.telefono.trim() || null, datos.email.trim() || null)
+            .pipe(switchMap(() => this.api.actualizarDireccionCliente(cliente.id, this.direccionDeFormulario(datos))))
         ),
         switchMap((cliente) =>
           // documentosMinimosCompletos siempre false acá: la solicitud se crea
@@ -1178,7 +1185,9 @@ export class SolicitudComponent {
       .pipe(catchError((err: HttpErrorResponse) => (err.status === 404 ? this.api.crearCliente(this.clienteDeFormulario(datos)) : throwError(() => err))))
       .pipe(
         switchMap((cliente) =>
-          this.api.actualizarDireccionCliente(cliente.id, this.direccionDeFormulario(datos))
+          this.api
+            .actualizarContactoCliente(cliente.id, datos.telefono.trim() || null, datos.email.trim() || null)
+            .pipe(switchMap(() => this.api.actualizarDireccionCliente(cliente.id, this.direccionDeFormulario(datos))))
         ),
         switchMap((cliente) =>
           // Si ya había un aval guardado (se retrocedió a este paso), se
@@ -1239,7 +1248,8 @@ export class SolicitudComponent {
   }
 
   private tieneDniCompleto(documentos: DocumentoSolicitudResponse[]): boolean {
-    return documentos.some((d) => d.tipo === 'DNI_FRENTE') && documentos.some((d) => d.tipo === 'DNI_REVERSO');
+    // DEC-229: solo el frente es obligatorio; el reverso es solo registro.
+    return documentos.some((d) => d.tipo === 'DNI_FRENTE');
   }
 
   /** No bloquea el avance del wizard — si la consulta falla, simplemente no se muestra el aviso. */
@@ -1395,12 +1405,12 @@ export class SolicitudComponent {
   protected readonly faltantes = computed<{ texto: string; paso: Paso }[]>(() => {
     const faltan: { texto: string; paso: Paso }[] = [];
     if (!this.tieneDniCompleto(this.documentosTitular())) {
-      faltan.push({ texto: 'DNI del titular (frente y reverso)', paso: 'documentos-titular' });
+      faltan.push({ texto: 'DNI del titular (frente)', paso: 'documentos-titular' });
     }
     if (!this.avalista()) {
       faltan.push({ texto: 'Aval', paso: 'avalista' });
     } else if (!this.tieneDniCompleto(this.documentosAvalista())) {
-      faltan.push({ texto: 'DNI del aval (frente y reverso)', paso: 'documentos-avalista' });
+      faltan.push({ texto: 'DNI del aval (frente)', paso: 'documentos-avalista' });
     }
     if (!this.vehiculo()) {
       faltan.push({ texto: 'Moto', paso: 'vehiculo' });
