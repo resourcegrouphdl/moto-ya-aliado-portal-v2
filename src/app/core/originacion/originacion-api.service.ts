@@ -59,6 +59,11 @@ export class OriginacionApiService {
     return this.http.patch<ClienteResponse>(`${this.base}/clientes/${clienteId}/direccion`, datos);
   }
 
+  /** DEC-229: correo y celular del cliente (titular o aval); se llama siempre, también cuando el cliente ya existía, para no perder lo tipeado. */
+  actualizarContactoCliente(clienteId: string, telefono: string | null, email: string | null): Observable<ClienteResponse> {
+    return this.http.patch<ClienteResponse>(`${this.base}/clientes/${clienteId}/contacto`, { telefono, email });
+  }
+
   crearSolicitud(datos: CrearSolicitudRequest): Observable<SolicitudCreditoResponse> {
     return this.http.post<SolicitudCreditoResponse>(`${this.base}/solicitudes`, datos);
   }
